@@ -1,5 +1,449 @@
-<!DOCTYPE html>
-<html>
-<head><title>테스트</title></head>
-<body><h1>myMathCo 사이트 배포 성공!</h1></body>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MathForge | AI 수학문제 생성</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="주 메뉴">
+      <a class="brand" href="#dashboard" data-view-link="dashboard" aria-label="MathForge 대시보드">
+        <span class="brand-mark">M</span>
+        <span>
+          <strong>MathForge</strong>
+          <small>AI 문제 제작실</small>
+        </span>
+      </a>
+
+      <nav class="nav-list">
+        <button class="nav-item active" type="button" data-view-link="dashboard" title="대시보드">
+          <span aria-hidden="true">▦</span>
+          <span>대시보드</span>
+        </button>
+        <button class="nav-item" type="button" data-view-link="generator" title="문제 생성">
+          <span aria-hidden="true">✦</span>
+          <span>문제 생성</span>
+        </button>
+        <button class="nav-item" type="button" data-view-link="library" title="문제 보관함">
+          <span aria-hidden="true">▤</span>
+          <span>문제 보관함</span>
+        </button>
+        <button class="nav-item" type="button" data-view-link="guide" title="사용자 가이드">
+          <span aria-hidden="true">?</span>
+          <span>사용자 가이드</span>
+        </button>
+        <button class="nav-item" type="button" data-view-link="settings" title="설정">
+          <span aria-hidden="true">⚙</span>
+          <span>설정</span>
+        </button>
+        <button class="nav-item" type="button" data-view-link="deploy" title="배포 안내">
+          <span aria-hidden="true">⇧</span>
+          <span>배포 안내</span>
+        </button>
+      </nav>
+
+      <div class="side-note">
+        <strong>데모 모드</strong>
+        <p>API 키 없이도 로컬 샘플 엔진으로 문제를 생성합니다.</p>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" id="menuToggle" aria-label="메뉴 열기">☰</button>
+        <div>
+          <p class="eyebrow">중고등 수학 문제 자동 생성</p>
+          <h1 id="pageTitle">대시보드</h1>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-button" type="button" id="exportAllBtn">전체 PDF</button>
+          <button class="ghost-button" type="button" id="exportAllExcelBtn">전체 엑셀</button>
+          <button class="primary-button" type="button" data-view-link="generator">새 문제 만들기</button>
+        </div>
+      </header>
+
+      <section class="view active" id="dashboard" aria-labelledby="dashboard-title">
+        <div class="hero-band">
+          <div>
+            <p class="eyebrow">MathForge Studio</p>
+            <h2 id="dashboard-title">수업, 과제, 시험 대비용 문제를 빠르게 만드세요.</h2>
+            <p>학교급, 학년, 단원, 난이도, 문제 유형을 고르면 1개부터 10개까지 즉시 생성합니다. AI 연동 전에도 데모 엔진으로 흐름을 확인할 수 있습니다.</p>
+          </div>
+          <div class="hero-panel" aria-label="오늘의 생성 현황">
+            <span>오늘 생성</span>
+            <strong id="todayCount">0</strong>
+            <small>문제</small>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span>총 생성 문제</span>
+            <strong id="totalCount">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>객관식 비율</span>
+            <strong id="choiceRate">0%</strong>
+          </article>
+          <article class="stat-card">
+            <span>평균 난이도</span>
+            <strong id="avgDifficulty">-</strong>
+          </article>
+          <article class="stat-card">
+            <span>최근 레벨</span>
+            <strong id="recentLevel">-</strong>
+          </article>
+        </div>
+
+        <div class="two-column">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>최근 생성 세트</h3>
+              <button class="text-button" type="button" data-view-link="library">전체 보기</button>
+            </div>
+            <div class="recent-list" id="recentList"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>AI 연동 후보</h3>
+            </div>
+            <div class="provider-list">
+              <article>
+                <strong>Google Gemini API</strong>
+                <p>무료 티어로 시작하기 좋고, 수학 풀이 설명 생성에도 무난합니다.</p>
+              </article>
+              <article>
+                <strong>OpenAI API</strong>
+                <p>문제 품질, 지시문 준수, 채점 기준 생성이 강점입니다.</p>
+              </article>
+              <article>
+                <strong>로컬 LLM</strong>
+                <p>개인정보와 비용 통제에 유리하지만 서버 성능과 운영 부담이 있습니다.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="generator" aria-labelledby="generator-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Problem Builder</p>
+            <h2 id="generator-title">문제 생성</h2>
+          </div>
+          <span class="status-pill" id="engineStatus">샘플 엔진 사용 중</span>
+        </div>
+
+        <form class="generator-layout" id="generatorForm">
+          <section class="panel form-panel" aria-label="문제 조건">
+            <div class="field-row">
+              <label for="schoolLevel">학교급</label>
+              <select id="schoolLevel" name="schoolLevel">
+                <option value="middle">중학교</option>
+                <option value="high">고등학교</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="grade">학년</label>
+              <select id="grade" name="grade"></select>
+            </div>
+
+            <div class="field-row">
+              <label for="topic">단원</label>
+              <select id="topic" name="topic"></select>
+            </div>
+
+            <div class="field-row">
+              <label for="questionType">문제 유형</label>
+              <select id="questionType" name="questionType">
+                <option value="mixed">혼합</option>
+                <option value="multiple">객관식</option>
+                <option value="short">주관식</option>
+                <option value="essay">서술형</option>
+                <option value="truefalse">참/거짓</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="difficulty">난이도</label>
+              <select id="difficulty" name="difficulty">
+                <option value="easy">기초</option>
+                <option value="medium" selected>표준</option>
+                <option value="hard">심화</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="count">생성 개수</label>
+              <div class="stepper">
+                <button type="button" id="decreaseCount" aria-label="생성 개수 줄이기">−</button>
+                <input id="count" name="count" type="number" min="1" max="10" value="5">
+                <button type="button" id="increaseCount" aria-label="생성 개수 늘리기">+</button>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label for="aiProvider">AI 제공자</label>
+              <select id="aiProvider" name="aiProvider">
+                <option value="demo">데모 샘플 엔진</option>
+                <option value="gemini">Google Gemini API</option>
+                <option value="openai">OpenAI API</option>
+                <option value="local">로컬 LLM</option>
+              </select>
+              <p class="field-help" id="providerConfigHelp">데모 엔진은 API 키 없이 사용할 수 있습니다.</p>
+            </div>
+
+            <div class="field-row">
+              <label for="customPrompt">추가 조건</label>
+              <textarea id="customPrompt" name="customPrompt" rows="4" placeholder="예: 계산 과정이 짧고, 오답 선지가 자연스럽게 만들어지면 좋겠어."></textarea>
+            </div>
+
+            <button class="primary-button full-width" type="submit">문제 생성</button>
+          </section>
+
+          <section class="panel result-panel" aria-label="생성 결과">
+            <div class="panel-header">
+              <h3>생성 결과</h3>
+              <div class="inline-actions">
+                <button class="ghost-button" type="button" id="copyBtn">복사</button>
+                <button class="ghost-button" type="button" id="pdfBtn">PDF</button>
+                <button class="ghost-button" type="button" id="excelBtn">엑셀</button>
+                <button class="ghost-button" type="button" id="printProblemsBtn">문제지만 출력</button>
+                <button class="ghost-button" type="button" id="printAnswersBtn">정답지만 출력</button>
+                <button class="ghost-button" type="button" id="emailBtn">메일 보내기</button>
+              </div>
+            </div>
+            <div class="problem-list" id="problemList">
+              <div class="empty-state">
+                <strong>아직 생성된 문제가 없습니다.</strong>
+                <p>왼쪽 조건을 설정하고 문제 생성을 눌러보세요.</p>
+              </div>
+            </div>
+          </section>
+        </form>
+      </section>
+
+      <section class="view" id="library" aria-labelledby="library-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Library</p>
+            <h2 id="library-title">문제 보관함</h2>
+          </div>
+          <button class="ghost-button danger" type="button" id="clearLibraryBtn">보관함 비우기</button>
+        </div>
+        <div class="panel">
+          <div class="problem-list" id="libraryList"></div>
+        </div>
+      </section>
+
+      <section class="view" id="guide" aria-labelledby="guide-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Guide</p>
+            <h2 id="guide-title">사용자 가이드</h2>
+          </div>
+        </div>
+        <div class="guide-layout">
+          <article class="panel guide-overview">
+            <h3>빠른 시작</h3>
+            <ol class="guide-steps">
+              <li><strong>문제 생성</strong><span>학교급, 학년, 단원, 유형, 난이도, 개수를 선택합니다.</span></li>
+              <li><strong>생성 결과 확인</strong><span>정답과 풀이를 검토하고 필요한 경우 다시 생성합니다.</span></li>
+              <li><strong>보관함 확인</strong><span>생성한 문제는 자동으로 생성 세트 단위로 저장됩니다.</span></li>
+              <li><strong>출력 또는 백업</strong><span>PDF, 엑셀, 문제지, 정답지, JSON 백업 중 필요한 방식을 선택합니다.</span></li>
+            </ol>
+          </article>
+
+          <div class="guide-grid">
+            <article class="panel guide-card">
+              <h3>문제 생성 조건</h3>
+              <ul class="guide-list">
+                <li>학교급은 중학교와 고등학교 중 선택합니다.</li>
+                <li>학년을 바꾸면 선택 가능한 단원이 자동으로 바뀝니다.</li>
+                <li>문제 유형은 객관식, 주관식, 서술형, 참/거짓, 혼합을 지원합니다.</li>
+                <li>한 번에 1개부터 10개까지 생성할 수 있습니다.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>보관함 사용</h3>
+              <ul class="guide-list">
+                <li>문제는 생성할 때마다 하나의 세트로 저장됩니다.</li>
+                <li>세트 제목 영역을 누르면 문제 세부정보를 펼치거나 접을 수 있습니다.</li>
+                <li>세트별로 복사, PDF, 엑셀, 문제지 출력, 정답지 출력, 메일 보내기를 사용할 수 있습니다.</li>
+                <li>127.0.0.1과 localhost는 저장소가 다르므로 한 주소를 계속 사용하는 것이 좋습니다.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>출력과 내보내기</h3>
+              <ul class="guide-list">
+                <li>PDF는 인쇄 창에서 PDF로 저장을 선택하는 방식입니다.</li>
+                <li>엑셀은 .xls 파일로 내려받아 스프레드시트에서 열 수 있습니다.</li>
+                <li>문제지만 출력은 정답과 풀이를 숨깁니다.</li>
+                <li>정답지만 출력은 정답과 풀이 위주로 정리합니다.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>API 설정</h3>
+              <ul class="guide-list">
+                <li>설정 메뉴에서 Gemini, OpenAI, 로컬 LLM 정보를 관리합니다.</li>
+                <li>모델은 목록에서 선택하거나 직접 입력할 수 있습니다.</li>
+                <li>연결 테스트는 현재 입력된 키, 모델, 엔드포인트로 간단한 요청을 보냅니다.</li>
+                <li>실제 배포 서비스에서는 API Key를 브라우저가 아니라 백엔드에 저장해야 합니다.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>저장과 백업</h3>
+              <ul class="guide-list">
+                <li>기본 저장은 브라우저 localStorage에 자동으로 이루어집니다.</li>
+                <li>설정 메뉴의 JSON 백업으로 전체 기록을 파일로 저장할 수 있습니다.</li>
+                <li>JSON 복원으로 다른 브라우저나 다른 주소에서도 기록을 가져올 수 있습니다.</li>
+                <li>백업 파일에는 API Key가 포함될 수 있으므로 공유에 주의하세요.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>문제 검수 팁</h3>
+              <ul class="guide-list">
+                <li>수업 전에 정답과 풀이를 반드시 확인하세요.</li>
+                <li>객관식은 오답 선지가 너무 obvious하지 않은지 살펴보세요.</li>
+                <li>서술형은 채점 기준을 따로 보완하면 활용도가 높아집니다.</li>
+                <li>같은 조건으로 여러 번 생성해 난이도와 표현을 비교해보세요.</li>
+              </ul>
+            </article>
+          </div>
+
+          <article class="panel guide-note">
+            <h3>문제가 생겼을 때</h3>
+            <div class="guide-columns">
+              <p><strong>저장한 문제가 안 보일 때</strong><br>주소가 localhost인지 127.0.0.1인지 확인하세요. 두 주소는 브라우저 저장소가 분리됩니다.</p>
+              <p><strong>PDF가 바로 저장되지 않을 때</strong><br>인쇄 창에서 프린터 대상을 PDF 저장으로 바꾸면 됩니다.</p>
+              <p><strong>API 테스트가 실패할 때</strong><br>키 권한, 모델명, 엔드포인트, 브라우저 CORS 정책을 확인하세요.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="settings" aria-labelledby="settings-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2 id="settings-title">설정</h2>
+          </div>
+          <span class="status-pill" id="apiSaveStatus">로컬 저장</span>
+        </div>
+
+        <div class="settings-layout">
+          <form class="panel form-panel" id="apiSettingsForm" aria-label="API 키 설정">
+            <div class="panel-header">
+              <h3>API Key 관리</h3>
+            </div>
+
+            <div class="field-row">
+              <label for="settingsProvider">설정할 AI 제공자</label>
+              <select id="settingsProvider" name="settingsProvider">
+                <option value="gemini">Google Gemini API</option>
+                <option value="openai">OpenAI API</option>
+                <option value="local">로컬 LLM</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="apiKey">API Key</label>
+              <div class="secret-field">
+                <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="API 키를 입력하세요">
+                <button class="ghost-button" type="button" id="toggleApiKey">보기</button>
+              </div>
+              <p class="field-help">프로토타입에서는 브라우저 localStorage에 저장됩니다. 실제 배포 서비스에서는 백엔드 환경변수에 저장하세요.</p>
+            </div>
+
+            <div class="field-row">
+              <label for="apiModel">모델명</label>
+              <select id="apiModel" name="apiModel"></select>
+            </div>
+
+            <div class="field-row" id="customModelRow">
+              <label for="customApiModel">사용자 지정 모델</label>
+              <input id="customApiModel" name="customApiModel" type="text" placeholder="예: gemini-flash-latest">
+            </div>
+
+            <div class="field-row">
+              <label for="apiEndpoint">엔드포인트</label>
+              <input id="apiEndpoint" name="apiEndpoint" type="url" placeholder="선택 사항">
+            </div>
+
+            <div class="settings-actions">
+              <button class="primary-button" type="submit">설정 저장</button>
+              <button class="ghost-button" type="button" id="testApiConnection">연결 테스트</button>
+              <button class="ghost-button danger" type="button" id="deleteApiKey">현재 키 삭제</button>
+              <button class="ghost-button danger" type="button" id="deleteAllApiKeys">모든 키 삭제</button>
+            </div>
+            <div class="test-result" id="apiTestResult" role="status" aria-live="polite"></div>
+          </form>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>API Key 목록</h3>
+            </div>
+            <div class="provider-list" id="apiStatusList"></div>
+          </section>
+
+          <section class="panel form-panel">
+            <div class="panel-header">
+              <h3>파일 저장/불러오기</h3>
+            </div>
+            <p class="field-help">문제 보관함, API 설정, 현재 생성 결과를 JSON 파일로 백업하거나 복원합니다. API Key도 파일에 포함될 수 있으니 공유에 주의하세요.</p>
+            <div class="settings-actions">
+              <button class="primary-button" type="button" id="backupJsonBtn">JSON 백업</button>
+              <label class="ghost-button file-button" for="restoreJsonInput">JSON 복원</label>
+              <input class="visually-hidden" id="restoreJsonInput" type="file" accept="application/json,.json">
+            </div>
+            <div class="test-result" id="backupStatus" role="status" aria-live="polite"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="deploy" aria-labelledby="deploy-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Deployment</p>
+            <h2 id="deploy-title">배포 및 AI API 안내</h2>
+          </div>
+        </div>
+
+        <div class="deploy-grid">
+          <article class="panel">
+            <h3>웹사이트 배포</h3>
+            <p>초기 버전은 정적 사이트로 Netlify, Vercel, GitHub Pages에 바로 올릴 수 있습니다. 서버 API가 필요해지면 Next.js 또는 Express 백엔드를 붙이는 방식이 좋습니다.</p>
+          </article>
+          <article class="panel">
+            <h3>데스크탑 앱</h3>
+            <p>웹앱을 Electron 또는 Tauri로 감싸면 Windows/macOS 데스크탑 앱으로 배포할 수 있습니다. 가볍게 가려면 Tauri가 유리합니다.</p>
+          </article>
+          <article class="panel">
+            <h3>모바일 앱</h3>
+            <p>React Native, Flutter, 또는 PWA 방식을 고려할 수 있습니다. 우선 PWA로 시작하면 설치형 앱처럼 배포하면서 개발 비용을 줄일 수 있습니다.</p>
+          </article>
+          <article class="panel">
+            <h3>AI API 선택</h3>
+            <p>Google Gemini API는 무료 티어 테스트에 좋습니다. 품질과 안정성이 더 중요하면 OpenAI API, 내부망이나 개인정보 보호가 중요하면 로컬 LLM을 검토하세요.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
 </html>
