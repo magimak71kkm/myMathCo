@@ -160,6 +160,14 @@ button {
   font-size: clamp(26px, 3vw, 36px);
 }
 
+.updated-at {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--primary);
@@ -600,6 +608,63 @@ textarea:focus {
 
 .problem-card {
   background: #ffffff;
+}
+
+.problem-visual {
+  max-width: 420px;
+  margin: 14px 0;
+}
+
+.problem-visual svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.problem-visual rect {
+  fill: #fbfcfe;
+  stroke: #d8e1ea;
+}
+
+.problem-visual .grid path {
+  stroke: #e7edf3;
+  stroke-width: 1;
+}
+
+.problem-visual .axis {
+  stroke: #7d8b99;
+  stroke-width: 1.5;
+}
+
+.problem-visual .curve {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.problem-visual .shape {
+  fill: rgba(37, 111, 111, 0.08);
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.problem-visual .points {
+  fill: var(--accent);
+}
+
+.problem-visual text {
+  fill: var(--ink);
+  font: 700 13px Arial, sans-serif;
+}
+
+.problem-visual figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .problem-set {

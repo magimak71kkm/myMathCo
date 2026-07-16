@@ -1,3 +1,5 @@
+const APP_UPDATED_AT = "2026-07-17";
+
 const curriculum = {
   middle: {
     label: "중학교",
@@ -119,6 +121,7 @@ const libraryList = $("#libraryList");
 const recentList = $("#recentList");
 const toast = $("#toast");
 const pageTitle = $("#pageTitle");
+const updatedAt = $("#updatedAt");
 const engineStatus = $("#engineStatus");
 const providerConfigHelp = $("#providerConfigHelp");
 const settingsProvider = $("#settingsProvider");
@@ -546,6 +549,47 @@ function selectProblemType(selected, index) {
   return ["multiple", "short", "essay", "truefalse"][index % 4];
 }
 
+function pickVisualKind(topicText, index) {
+  if (/원|호|현|접선/.test(topicText)) return "circle";
+  if (/삼각|도형|각|닮음|피타고라스|벡터|공간/.test(topicText)) return "triangle";
+  if (/함수|그래프|좌표|직선|이차|로그|지수|미분|적분/.test(topicText)) return "graph";
+  return index % 4 === 0 ? "graph" : "none";
+}
+
+function createDemoVisual(formData, params, index) {
+  const kind = pickVisualKind(formData.topic, index);
+  if (kind === "none") return null;
+
+  if (kind === "triangle") {
+    return normalizeProblemVisual({
+      type: "triangle",
+      title: "보기 도형",
+      description: `삼각형 ABC에서 AB=${params.a}, AC=${params.b + 4}, ∠A=${40 + params.c}°`,
+      labels: ["A", "B", "C"]
+    });
+  }
+
+  if (kind === "circle") {
+    return normalizeProblemVisual({
+      type: "circle",
+      title: "보기 도형",
+      description: `중심 O인 원에서 반지름은 ${params.c + 3}, 현 AB와 중심각을 이용한다.`,
+      labels: ["O", "A", "B"]
+    });
+  }
+
+  return normalizeProblemVisual({
+    type: "graph",
+    title: "보기 그래프",
+    description: formData.schoolLevel === "high"
+      ? `y=x^2+${params.b}x-${params.c}의 개형`
+      : `두 점 (${params.d}, ${params.b}), (${params.d + 3}, ${params.b + params.c})를 지나는 직선`,
+    points: formData.schoolLevel === "high"
+      ? [[-4, 8], [-2, 1], [0, -params.c], [2, 2 + params.b], [4, 8 + params.b]]
+      : [[params.d, params.b], [params.d + 3, params.b + params.c]]
+  });
+}
+
 function makeProblem(formData, index) {
   const selectedType = selectProblemType(formData.questionType, index);
   const seed = Date.now() + index * 17;
@@ -563,6 +607,7 @@ function makeProblem(formData, index) {
   const difficultyText = difficultyLabels[formData.difficulty];
   const isHigh = formData.schoolLevel === "high";
   const isHard = formData.difficulty === "hard";
+  const visual = createDemoVisual(formData, { a, b, c, d }, index);
 
   const templates = {
     multiple: () => {
@@ -638,12 +683,36 @@ function makeProblem(formData, index) {
     difficulty: formData.difficulty,
     difficultyLabel: difficultyText,
     note: formData.customPrompt.trim(),
+    visual,
     ...templates[selectedType]()
   };
 }
 
 function generateProblems(formData) {
   return Array.from({ length: formData.count }, (_, index) => makeProblem(formData, index));
+}
+
+function normalizeProblemVisual(visual) {
+  if (!visual || typeof visual !== "object") return null;
+  const type = String(visual.type || "none").toLowerCase();
+  if (!["graph", "triangle", "circle"].includes(type)) return null;
+  const points = Array.isArray(visual.points)
+    ? visual.points
+        .map((point) => Array.isArray(point) ? point.slice(0, 2).map(Number) : null)
+        .filter((point) => point && point.every(Number.isFinite))
+        .slice(0, 8)
+    : [];
+  const labels = Array.isArray(visual.labels)
+    ? visual.labels.map(String).filter(Boolean).slice(0, 4)
+    : [];
+
+  return {
+    type,
+    title: String(visual.title || (type === "graph" ? "보기 그래프" : "보기 도형")).slice(0, 40),
+    description: String(visual.description || "").slice(0, 160),
+    points,
+    labels
+  };
 }
 
 function buildAiPrompt(formData) {
@@ -670,6 +739,8 @@ ${levelLabel} ${gradeLabel} 수준의 수학 문제를 생성해줘.
 - 심화 난이도는 2단계 이상 추론이 필요하게 해줘.
 - 문제 문장 첫머리에 "${formData.topic} 단원 ${difficultyLabel} 문제입니다" 같은 안내 문구를 반복하지 마.
 - 단원명과 난이도는 문제 메타데이터에 이미 표시되므로 문제 본문에는 자연스럽게 녹여줘.
+- 함수, 좌표, 도형, 삼각비, 원, 벡터, 통계 그래프처럼 그림이 도움이 되는 문제는 visual 필드를 포함해줘.
+- visual은 실제 이미지를 만들지 말고 아래 JSON 데이터만 넣어줘. 그림이 필요 없으면 null로 둬.
 - 객관식은 choices 5개를 만들고, 오답 선지는 그럴듯해야 해.
 - 주관식과 서술형도 answer와 solution을 반드시 포함해.
 
@@ -680,7 +751,14 @@ ${levelLabel} ${gradeLabel} 수준의 수학 문제를 생성해줘.
   "question": "문제 본문",
   "choices": ["선지1", "선지2", "선지3", "선지4", "선지5"],
   "answer": "정답",
-  "solution": "풀이"
+  "solution": "풀이",
+  "visual": {
+    "type": "graph | triangle | circle",
+    "title": "보기 그래프 또는 보기 도형",
+    "description": "그림에 표시할 짧은 설명",
+    "points": [[-2, 3], [0, 1], [2, 5]],
+    "labels": ["A", "B", "C"]
+  }
 }
 `.trim();
 }
@@ -740,7 +818,8 @@ function normalizeAiProblem(item, formData, index) {
     question: String(item.question || "문제 생성 결과를 확인하세요."),
     choices,
     answer: String(item.answer || "정답 확인 필요"),
-    solution: String(item.solution || "풀이 확인 필요")
+    solution: String(item.solution || "풀이 확인 필요"),
+    visual: normalizeProblemVisual(item.visual)
   };
 }
 
@@ -767,11 +846,71 @@ function createProblemSet(formData, problems) {
   };
 }
 
+function renderProblemVisual(visual) {
+  const data = normalizeProblemVisual(visual);
+  if (!data) return "";
+
+  const caption = data.description
+    ? `<figcaption>${escapeHtml(data.description)}</figcaption>`
+    : "";
+  const title = escapeHtml(data.title);
+  let svg = "";
+
+  if (data.type === "graph") {
+    const points = data.points.length >= 2 ? data.points : [[-3, 4], [-1, 1], [1, 2], [3, 6]];
+    const xs = points.map(([x]) => x);
+    const ys = points.map(([, y]) => y);
+    const minX = Math.min(-5, ...xs);
+    const maxX = Math.max(5, ...xs);
+    const minY = Math.min(-5, ...ys);
+    const maxY = Math.max(5, ...ys);
+    const mapX = (x) => 44 + ((x - minX) / (maxX - minX || 1)) * 252;
+    const mapY = (y) => 172 - ((y - minY) / (maxY - minY || 1)) * 132;
+    const path = points.map(([x, y], idx) => `${idx ? "L" : "M"} ${mapX(x).toFixed(1)} ${mapY(y).toFixed(1)}`).join(" ");
+    const pointDots = points.map(([x, y]) => `<circle cx="${mapX(x).toFixed(1)}" cy="${mapY(y).toFixed(1)}" r="4" />`).join("");
+    svg = `
+      <svg viewBox="0 0 340 210" role="img" aria-label="${title}">
+        <rect x="1" y="1" width="338" height="208" rx="8" />
+        <g class="grid">${Array.from({ length: 6 }, (_, i) => `<path d="M44 ${40 + i * 26}H296M${44 + i * 50.4} 40V172" />`).join("")}</g>
+        <path class="axis" d="M44 106H296M170 40V172" />
+        <path class="curve" d="${path}" />
+        <g class="points">${pointDots}</g>
+        <text x="52" y="28">${title}</text>
+      </svg>`;
+  } else if (data.type === "circle") {
+    svg = `
+      <svg viewBox="0 0 340 210" role="img" aria-label="${title}">
+        <rect x="1" y="1" width="338" height="208" rx="8" />
+        <circle class="shape" cx="170" cy="104" r="64" />
+        <path class="curve" d="M170 104L109 124M170 104L222 66M109 124Q158 154 222 66" />
+        <circle class="points" cx="170" cy="104" r="4" />
+        <circle class="points" cx="109" cy="124" r="4" />
+        <circle class="points" cx="222" cy="66" r="4" />
+        <text x="176" y="101">O</text><text x="92" y="140">A</text><text x="228" y="62">B</text>
+        <text x="52" y="28">${title}</text>
+      </svg>`;
+  } else {
+    const labels = data.labels.length >= 3 ? data.labels : ["A", "B", "C"];
+    svg = `
+      <svg viewBox="0 0 340 210" role="img" aria-label="${title}">
+        <rect x="1" y="1" width="338" height="208" rx="8" />
+        <path class="shape" d="M84 164L168 48L270 164Z" />
+        <path class="curve" d="M84 164L270 164M168 48L168 164" />
+        <circle class="points" cx="84" cy="164" r="4" /><circle class="points" cx="168" cy="48" r="4" /><circle class="points" cx="270" cy="164" r="4" />
+        <text x="164" y="38">${escapeHtml(labels[0])}</text><text x="66" y="182">${escapeHtml(labels[1])}</text><text x="276" y="182">${escapeHtml(labels[2])}</text>
+        <text x="52" y="28">${title}</text>
+      </svg>`;
+  }
+
+  return `<figure class="problem-visual">${svg}${caption}</figure>`;
+}
+
 function renderProblem(problem, index) {
   const choices = problem.choices
     ? `<ol class="choices">${problem.choices.map((choice, choiceIndex) => `<li>${choiceIndex + 1}. ${choice}</li>`).join("")}</ol>`
     : "";
   const note = problem.note ? `<p><strong>추가 조건:</strong> ${escapeHtml(problem.note)}</p>` : "";
+  const visual = renderProblemVisual(problem.visual);
 
   return `
     <article class="problem-card">
@@ -782,6 +921,7 @@ function renderProblem(problem, index) {
         <span class="status-pill">${problem.topic}</span>
       </div>
       <h4>문제 ${index + 1}. ${escapeHtml(problem.question)}</h4>
+      ${visual}
       ${choices}
       ${note}
       <button class="ghost-button answer-toggle" type="button" data-answer-toggle>정답/풀이 보기</button>
@@ -1007,6 +1147,7 @@ function buildPrintableHtml(problems, title, mode = "full") {
         <h2>문제 ${index + 1}</h2>
         <p class="meta">${escapeHtml(problem.schoolLevel)} ${escapeHtml(problem.grade)} · ${escapeHtml(problem.topic)} · ${escapeHtml(problem.typeLabel)}</p>
         <p>${escapeHtml(problem.question)}</p>
+        ${renderProblemVisual(problem.visual)}
         ${choices}
       </section>
     ` : "";
@@ -1035,6 +1176,16 @@ function buildPrintableHtml(problems, title, mode = "full") {
         .choices { margin: 8px 0 0 20px; padding: 0; }
         .choices li { margin: 4px 0; }
         .answer { background: #f6f9fb; padding-left: 10px; padding-right: 10px; }
+        .problem-visual { margin: 12px 0; max-width: 360px; }
+        .problem-visual svg { width: 100%; height: auto; }
+        .problem-visual rect { fill: #fbfcfe; stroke: #d8e1ea; }
+        .problem-visual .grid path { stroke: #e7edf3; stroke-width: 1; }
+        .problem-visual .axis { stroke: #7d8b99; stroke-width: 1.5; }
+        .problem-visual .curve { fill: none; stroke: #256f6f; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        .problem-visual .shape { fill: rgba(37, 111, 111, 0.08); stroke: #256f6f; stroke-width: 3; stroke-linejoin: round; }
+        .problem-visual .points { fill: #d88425; }
+        .problem-visual text { fill: #243241; font: 700 13px Arial, sans-serif; }
+        .problem-visual figcaption { color: #627183; font-size: 12px; margin-top: 4px; }
       </style>
     </head>
     <body>
@@ -1153,6 +1304,128 @@ async function renderPdfPages(problems, title) {
     return lines.length * lineHeight;
   }
 
+  function drawVisual(visual) {
+    const data = normalizeProblemVisual(visual);
+    if (!data) return;
+    ensureSpace(230);
+    const x = margin;
+    const w = 420;
+    const h = 220;
+    const top = y;
+    ctx.fillStyle = "#fbfcfe";
+    ctx.strokeStyle = "#d8e1ea";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(x, top, w, h, 14);
+    } else {
+      ctx.rect(x, top, w, h);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#243241";
+    ctx.font = "700 22px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.fillText(data.title, x + 26, top + 36);
+
+    if (data.type === "graph") {
+      const gx = x + 52;
+      const gy = top + 56;
+      const gw = 310;
+      const gh = 120;
+      ctx.strokeStyle = "#e7edf3";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(gx, gy + i * (gh / 5));
+        ctx.lineTo(gx + gw, gy + i * (gh / 5));
+        ctx.moveTo(gx + i * (gw / 5), gy);
+        ctx.lineTo(gx + i * (gw / 5), gy + gh);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "#7d8b99";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy + gh / 2);
+      ctx.lineTo(gx + gw, gy + gh / 2);
+      ctx.moveTo(gx + gw / 2, gy);
+      ctx.lineTo(gx + gw / 2, gy + gh);
+      ctx.stroke();
+      const points = data.points.length >= 2 ? data.points : [[-3, 4], [-1, 1], [1, 2], [3, 6]];
+      const xs = points.map(([px]) => px);
+      const ys = points.map(([, py]) => py);
+      const minX = Math.min(-5, ...xs);
+      const maxX = Math.max(5, ...xs);
+      const minY = Math.min(-5, ...ys);
+      const maxY = Math.max(5, ...ys);
+      const mapX = (px) => gx + ((px - minX) / (maxX - minX || 1)) * gw;
+      const mapY = (py) => gy + gh - ((py - minY) / (maxY - minY || 1)) * gh;
+      ctx.strokeStyle = "#256f6f";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      points.forEach(([px, py], idx) => {
+        const sx = mapX(px);
+        const sy = mapY(py);
+        if (idx) ctx.lineTo(sx, sy);
+        else ctx.moveTo(sx, sy);
+      });
+      ctx.stroke();
+      ctx.fillStyle = "#d88425";
+      points.forEach(([px, py]) => {
+        ctx.beginPath();
+        ctx.arc(mapX(px), mapY(py), 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else if (data.type === "circle") {
+      ctx.strokeStyle = "#256f6f";
+      ctx.fillStyle = "rgba(37, 111, 111, 0.08)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(x + 208, top + 118, 58, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + 208, top + 118);
+      ctx.lineTo(x + 154, top + 136);
+      ctx.moveTo(x + 208, top + 118);
+      ctx.lineTo(x + 254, top + 82);
+      ctx.moveTo(x + 154, top + 136);
+      ctx.quadraticCurveTo(x + 205, top + 162, x + 254, top + 82);
+      ctx.stroke();
+      ctx.fillStyle = "#243241";
+      ctx.fillText("O", x + 216, top + 116);
+      ctx.fillText("A", x + 132, top + 154);
+      ctx.fillText("B", x + 264, top + 78);
+    } else {
+      ctx.strokeStyle = "#256f6f";
+      ctx.fillStyle = "rgba(37, 111, 111, 0.08)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x + 94, top + 168);
+      ctx.lineTo(x + 210, top + 62);
+      ctx.lineTo(x + 330, top + 168);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#d88425";
+      ctx.beginPath();
+      ctx.moveTo(x + 210, top + 62);
+      ctx.lineTo(x + 210, top + 168);
+      ctx.stroke();
+      ctx.fillStyle = "#243241";
+      const labels = data.labels.length >= 3 ? data.labels : ["A", "B", "C"];
+      ctx.fillText(labels[0], x + 204, top + 52);
+      ctx.fillText(labels[1], x + 72, top + 190);
+      ctx.fillText(labels[2], x + 338, top + 190);
+    }
+
+    if (data.description) {
+      y = top + h + 22;
+      drawWrapped(data.description, x, pageWidth - margin * 2, "400 19px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+    } else {
+      y = top + h + 18;
+    }
+  }
+
   newPage();
   problems.forEach((problem, index) => {
     ensureSpace(260);
@@ -1163,6 +1436,7 @@ async function renderPdfPages(problems, title) {
     ctx.fillText(`문제 ${index + 1} · ${problem.topic} · ${problem.typeLabel} · ${problem.difficultyLabel}`, margin, y);
     y += 48;
     drawWrapped(problem.question, margin, pageWidth - margin * 2, "500 25px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif");
+    drawVisual(problem.visual);
     if (problem.choices?.length) {
       y += 8;
       problem.choices.forEach((choice, choiceIndex) => {
@@ -1249,7 +1523,7 @@ function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세
     return;
   }
 
-  const headers = ["번호", "학교급", "학년", "단원", "유형", "난이도", "문제", "선지", "정답", "풀이"];
+  const headers = ["번호", "학교급", "학년", "단원", "유형", "난이도", "문제", "그림 유형", "그림 설명", "선지", "정답", "풀이"];
   const rows = problems.map((problem, index) => [
     index + 1,
     problem.schoolLevel,
@@ -1258,6 +1532,8 @@ function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세
     problem.typeLabel,
     problem.difficultyLabel,
     problem.question,
+    problem.visual?.type || "",
+    problem.visual?.description || "",
     (problem.choices || []).join(" / "),
     problem.answer,
     problem.solution
@@ -1773,6 +2049,7 @@ function bindEvents() {
 }
 
 function init() {
+  if (updatedAt) updatedAt.textContent = `최신 업데이트: ${APP_UPDATED_AT}`;
   populateGrades();
   bindEvents();
   renderDashboard();
