@@ -54,6 +54,34 @@ const solutionDepthLabels = {
   rubric: "채점 기준 포함"
 };
 
+const fontOptions = {
+  system: {
+    label: "기본 시스템",
+    css: `Inter, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
+    canvas: `"Noto Sans KR", "Malgun Gothic", Arial, sans-serif`
+  },
+  noto: {
+    label: "Noto Sans KR",
+    css: `"Noto Sans KR", "Malgun Gothic", Arial, sans-serif`,
+    canvas: `"Noto Sans KR", "Malgun Gothic", Arial, sans-serif`
+  },
+  malgun: {
+    label: "맑은 고딕",
+    css: `"Malgun Gothic", "맑은 고딕", Arial, sans-serif`,
+    canvas: `"Malgun Gothic", Arial, sans-serif`
+  },
+  serif: {
+    label: "명조 계열",
+    css: `"Noto Serif KR", "Batang", "바탕", serif`,
+    canvas: `"Batang", "Noto Serif KR", serif`
+  },
+  mono: {
+    label: "고정폭",
+    css: `"D2Coding", "Consolas", "Courier New", monospace`,
+    canvas: `"Consolas", "Courier New", monospace`
+  }
+};
+
 const providerHints = {
   demo: "샘플 엔진 사용 중",
   gemini: "Gemini API 연결 준비",
@@ -119,7 +147,8 @@ const state = {
   currentSet: null,
   expandedSetIds: new Set(),
   apiSettings: loadApiSettings(),
-  defaultProvider: loadDefaultProvider()
+  defaultProvider: loadDefaultProvider(),
+  appFont: loadAppFont()
 };
 state.problems = flattenProblemSets(state.problemSets);
 
@@ -154,6 +183,7 @@ const engineStatus = $("#engineStatus");
 const providerConfigHelp = $("#providerConfigHelp");
 const apiPinCard = $("#apiPinCard");
 const settingsProvider = $("#settingsProvider");
+const fontSelect = $("#fontSelect");
 const apiKey = $("#apiKey");
 const apiModel = $("#apiModel");
 const customApiModel = $("#customApiModel");
@@ -217,6 +247,11 @@ function loadDefaultProvider() {
   return ["gemini", "openai", "local"].includes(saved) ? saved : "";
 }
 
+function loadAppFont() {
+  const saved = localStorage.getItem("mathforge.appFont");
+  return fontOptions[saved] ? saved : "system";
+}
+
 function saveApiSettings() {
   localStorage.setItem("mathforge.apiSettings", JSON.stringify(state.apiSettings));
 }
@@ -224,6 +259,25 @@ function saveApiSettings() {
 function saveDefaultProvider(provider) {
   state.defaultProvider = provider;
   localStorage.setItem("mathforge.defaultProvider", provider);
+}
+
+function saveAppFont(fontKey) {
+  state.appFont = fontOptions[fontKey] ? fontKey : "system";
+  localStorage.setItem("mathforge.appFont", state.appFont);
+}
+
+function applyAppFont(fontKey = state.appFont) {
+  const selected = fontOptions[fontKey] || fontOptions.system;
+  document.documentElement.style.setProperty("--app-font", selected.css);
+  if (fontSelect) fontSelect.value = fontOptions[fontKey] ? fontKey : "system";
+}
+
+function getCurrentFontCss() {
+  return (fontOptions[state.appFont] || fontOptions.system).css;
+}
+
+function getCanvasFontFamily() {
+  return (fontOptions[state.appFont] || fontOptions.system).canvas;
 }
 
 function saveProblems() {
@@ -246,7 +300,8 @@ function backupToJson() {
     currentSet: state.currentSet,
     currentProblems: state.currentProblems,
     apiSettings: state.apiSettings,
-    defaultProvider: state.defaultProvider
+    defaultProvider: state.defaultProvider,
+    appFont: state.appFont
   };
   const fileName = `mathforge-backup-${new Date().toISOString().slice(0, 10)}.json`;
   downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), fileName);
@@ -286,10 +341,13 @@ async function restoreFromJsonFile(file) {
     state.defaultProvider = ["gemini", "openai", "local"].includes(payload.defaultProvider)
       ? payload.defaultProvider
       : "";
+    state.appFont = fontOptions[payload.appFont] ? payload.appFont : "system";
 
     saveProblems();
     saveApiSettings();
     saveDefaultProvider(state.defaultProvider);
+    saveAppFont(state.appFont);
+    applyAppFont();
     renderProblems(problemList, state.currentProblems, "아직 생성된 문제가 없습니다.", "왼쪽 조건을 설정하고 문제 생성을 눌러보세요.");
     renderDashboard();
     renderLibrarySets();
@@ -1346,6 +1404,7 @@ function downloadBlob(blob, fileName) {
 function buildPrintableHtml(problems, title, mode = "full") {
   const showProblems = mode !== "answers";
   const showAnswers = mode !== "problems";
+  const printFont = getCurrentFontCss();
   const rows = problems.map((problem, index) => {
     const choices = problem.choices?.length
       ? `<ol class="choices">${problem.choices.map((choice) => `<li>${escapeHtml(choice)}</li>`).join("")}</ol>`
@@ -1382,7 +1441,7 @@ function buildPrintableHtml(problems, title, mode = "full") {
       <title>${escapeHtml(title)}</title>
       <style>
         @page { size: A4; margin: 16mm; }
-        body { font-family: "Noto Sans KR", "Malgun Gothic", Arial, sans-serif; color: #16202a; line-height: 1.55; }
+        body { font-family: ${printFont}; color: #16202a; line-height: 1.55; }
         h1 { font-size: 24px; margin: 0 0 18px; }
         h2 { font-size: 16px; margin: 0 0 6px; }
         .item, .answer { break-inside: avoid; border-bottom: 1px solid #dfe6ee; padding: 12px 0; }
@@ -1462,6 +1521,8 @@ async function renderPdfPages(problems, title) {
   let canvas;
   let ctx;
   let y;
+  const pdfFontFamily = getCanvasFontFamily();
+  const pdfFont = (weight, size) => `${weight} ${size}px ${pdfFontFamily}`;
 
   function newPage() {
     canvas = document.createElement("canvas");
@@ -1471,7 +1532,7 @@ async function renderPdfPages(problems, title) {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, pageWidth, pageHeight);
     ctx.fillStyle = "#16202a";
-    ctx.font = "700 34px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.font = pdfFont(700, 34);
     ctx.fillText(title, margin, margin);
     ctx.strokeStyle = "#dfe6ee";
     ctx.beginPath();
@@ -1538,7 +1599,7 @@ async function renderPdfPages(problems, title) {
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#243241";
-    ctx.font = "700 22px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.font = pdfFont(700, 22);
     ctx.fillText(data.title, x + 26, top + 36);
 
     if (data.type === "graph") {
@@ -1634,7 +1695,7 @@ async function renderPdfPages(problems, title) {
 
     if (data.description) {
       y = top + h + 22;
-      drawWrapped(data.description, x, pageWidth - margin * 2, "400 19px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+      drawWrapped(data.description, x, pageWidth - margin * 2, pdfFont(400, 19), "#627183");
     } else {
       y = top + h + 18;
     }
@@ -1646,30 +1707,30 @@ async function renderPdfPages(problems, title) {
     ctx.fillStyle = "#eef8f6";
     ctx.fillRect(margin - 18, y - 34, pageWidth - margin * 2 + 36, 46);
     ctx.fillStyle = "#174f52";
-    ctx.font = "700 24px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.font = pdfFont(700, 24);
     ctx.fillText(`문제 ${index + 1} · ${problem.topic} · ${problem.typeLabel} · ${problem.difficultyLabel}`, margin, y);
     y += 48;
-    drawWrapped(problem.question, margin, pageWidth - margin * 2, "500 25px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif");
+    drawWrapped(problem.question, margin, pageWidth - margin * 2, pdfFont(500, 25));
     drawVisual(problem.visual);
     if (problem.choices?.length) {
       y += 8;
       problem.choices.forEach((choice, choiceIndex) => {
         ensureSpace(46);
-        drawWrapped(`${choiceIndex + 1}. ${choice}`, margin + 22, pageWidth - margin * 2 - 22, "400 23px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#344353");
+        drawWrapped(`${choiceIndex + 1}. ${choice}`, margin + 22, pageWidth - margin * 2 - 22, pdfFont(400, 23), "#344353");
       });
     }
     y += 14;
     ensureSpace(120);
-    drawWrapped(`정답: ${problem.answer}`, margin, pageWidth - margin * 2, "700 23px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#174f52");
-    drawWrapped(`풀이: ${problem.solution}`, margin, pageWidth - margin * 2, "400 22px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#344353");
+    drawWrapped(`정답: ${problem.answer}`, margin, pageWidth - margin * 2, pdfFont(700, 23), "#174f52");
+    drawWrapped(`풀이: ${problem.solution}`, margin, pageWidth - margin * 2, pdfFont(400, 22), "#344353");
     if (problem.teacherMeta) {
       y += 10;
-      drawWrapped(`강사용: 예상 ${problem.teacherMeta.estimatedMinutes || "-"}분 · ${problem.teacherMeta.teachingPoint || ""}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+      drawWrapped(`강사용: 예상 ${problem.teacherMeta.estimatedMinutes || "-"}분 · ${problem.teacherMeta.teachingPoint || ""}`, margin, pageWidth - margin * 2, pdfFont(400, 20), "#627183");
       if (problem.teacherMeta.commonMistake) {
-        drawWrapped(`오답 포인트: ${problem.teacherMeta.commonMistake}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+        drawWrapped(`오답 포인트: ${problem.teacherMeta.commonMistake}`, margin, pageWidth - margin * 2, pdfFont(400, 20), "#627183");
       }
       if (problem.teacherMeta.rubric) {
-        drawWrapped(`채점 기준: ${problem.teacherMeta.rubric}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+        drawWrapped(`채점 기준: ${problem.teacherMeta.rubric}`, margin, pageWidth - margin * 2, pdfFont(400, 20), "#627183");
       }
     }
     y += 26;
@@ -2035,6 +2096,11 @@ function bindEvents() {
 
   settingsProvider.addEventListener("change", loadSettingsForm);
   apiModel.addEventListener("change", updateCustomModelVisibility);
+  fontSelect.addEventListener("change", () => {
+    saveAppFont(fontSelect.value);
+    applyAppFont();
+    showToast(`${fontOptions[state.appFont].label} 글씨체를 적용했습니다.`);
+  });
 
   $("#toggleApiKey").addEventListener("click", () => {
     const isHidden = apiKey.type === "password";
@@ -2295,6 +2361,7 @@ function bindEvents() {
 
 function init() {
   if (updatedAt) updatedAt.textContent = `최신 업데이트: ${APP_UPDATED_AT}`;
+  applyAppFont();
   populateGrades();
   bindEvents();
   renderDashboard();
