@@ -118,7 +118,8 @@ const state = {
   currentProblems: [],
   currentSet: null,
   expandedSetIds: new Set(),
-  apiSettings: loadApiSettings()
+  apiSettings: loadApiSettings(),
+  defaultProvider: loadDefaultProvider()
 };
 state.problems = flattenProblemSets(state.problemSets);
 
@@ -210,8 +211,18 @@ function loadApiSettings() {
   }
 }
 
+function loadDefaultProvider() {
+  const saved = localStorage.getItem("mathforge.defaultProvider");
+  return ["gemini", "openai", "local"].includes(saved) ? saved : "";
+}
+
 function saveApiSettings() {
   localStorage.setItem("mathforge.apiSettings", JSON.stringify(state.apiSettings));
+}
+
+function saveDefaultProvider(provider) {
+  state.defaultProvider = provider;
+  localStorage.setItem("mathforge.defaultProvider", provider);
 }
 
 function saveProblems() {
@@ -233,7 +244,8 @@ function backupToJson() {
     problemSets: state.problemSets,
     currentSet: state.currentSet,
     currentProblems: state.currentProblems,
-    apiSettings: state.apiSettings
+    apiSettings: state.apiSettings,
+    defaultProvider: state.defaultProvider
   };
   const fileName = `mathforge-backup-${new Date().toISOString().slice(0, 10)}.json`;
   downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), fileName);
@@ -270,9 +282,13 @@ async function restoreFromJsonFile(file) {
         { ...defaults, ...(payload.apiSettings?.[provider] || {}) }
       ])
     );
+    state.defaultProvider = ["gemini", "openai", "local"].includes(payload.defaultProvider)
+      ? payload.defaultProvider
+      : "";
 
     saveProblems();
     saveApiSettings();
+    saveDefaultProvider(state.defaultProvider);
     renderProblems(problemList, state.currentProblems, "아직 생성된 문제가 없습니다.", "왼쪽 조건을 설정하고 문제 생성을 눌러보세요.");
     renderDashboard();
     renderLibrarySets();
@@ -369,11 +385,31 @@ function hasProviderConfig(provider) {
   return Boolean(setting?.apiKey && setting?.model);
 }
 
+function getProviderLabel(provider) {
+  const labels = {
+    demo: "데모 샘플 엔진",
+    gemini: "Google Gemini API",
+    openai: "OpenAI API",
+    local: "로컬 LLM"
+  };
+  const model = state.apiSettings[provider]?.model;
+  return provider !== "demo" && model ? `${labels[provider]} · ${model}` : labels[provider];
+}
+
+function refreshAiProviderOptions(selectedProvider = aiProvider.value) {
+  Array.from(aiProvider.options).forEach((option) => {
+    option.textContent = getProviderLabel(option.value);
+  });
+  aiProvider.value = selectedProvider;
+}
+
 function getDefaultProvider() {
+  if (state.defaultProvider && hasProviderConfig(state.defaultProvider)) return state.defaultProvider;
   return ["gemini", "openai", "local"].find((provider) => hasProviderConfig(provider)) || "demo";
 }
 
 function syncDefaultProvider() {
+  refreshAiProviderOptions(getDefaultProvider());
   aiProvider.value = getDefaultProvider();
   updateProviderStatus();
 }
@@ -424,9 +460,9 @@ function updateProviderStatus() {
   }
 
   const setting = state.apiSettings[provider];
-  const providerName = aiProvider.options[aiProvider.selectedIndex].textContent;
+  const providerName = getProviderLabel(provider);
   providerConfigHelp.textContent = hasProviderConfig(provider)
-    ? `${providerName} 설정됨 · 모델 ${setting.model}`
+    ? `${providerName} 기본 사용 중`
     : `${providerName}를 사용하려면 설정 메뉴에서 API Key와 모델을 저장하세요.`;
 }
 
@@ -473,6 +509,7 @@ function renderApiStatus() {
 
 function resetProviderKey(provider) {
   state.apiSettings[provider] = { ...defaultApiSettings[provider], apiKey: "" };
+  if (state.defaultProvider === provider) saveDefaultProvider("");
   saveApiSettings();
   if (settingsProvider.value === provider) loadSettingsForm();
   renderApiStatus();
@@ -2164,11 +2201,12 @@ function bindEvents() {
       model: getSelectedModel(),
       endpoint: apiEndpoint.value.trim()
     };
+    saveDefaultProvider(provider);
     saveApiSettings();
     renderApiStatus();
     syncDefaultProvider();
     $("#apiSaveStatus").textContent = "저장됨";
-    showToast("API 설정을 저장했습니다.");
+    showToast("API 설정을 저장하고 문제 생성 기본값으로 적용했습니다.");
   });
 
   $("#deleteApiKey").addEventListener("click", () => {
@@ -2183,6 +2221,7 @@ function bindEvents() {
     Object.keys(state.apiSettings).forEach((provider) => {
       state.apiSettings[provider] = { ...defaultApiSettings[provider], apiKey: "" };
     });
+    saveDefaultProvider("");
     saveApiSettings();
     loadSettingsForm();
     renderApiStatus();
