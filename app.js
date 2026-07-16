@@ -152,6 +152,7 @@ const pageTitle = $("#pageTitle");
 const updatedAt = $("#updatedAt");
 const engineStatus = $("#engineStatus");
 const providerConfigHelp = $("#providerConfigHelp");
+const apiPinCard = $("#apiPinCard");
 const settingsProvider = $("#settingsProvider");
 const apiKey = $("#apiKey");
 const apiModel = $("#apiModel");
@@ -453,6 +454,7 @@ function updateProviderStatus() {
   engineStatus.textContent = hasProviderConfig(provider)
     ? providerHints[provider]
     : `${providerHints[provider]} · 키 미설정`;
+  renderApiPinCard(provider);
 
   if (provider === "demo") {
     providerConfigHelp.textContent = "데모 엔진은 API 키 없이 사용할 수 있습니다.";
@@ -464,6 +466,33 @@ function updateProviderStatus() {
   providerConfigHelp.textContent = hasProviderConfig(provider)
     ? `${providerName} 기본 사용 중`
     : `${providerName}를 사용하려면 설정 메뉴에서 API Key와 모델을 저장하세요.`;
+}
+
+function renderApiPinCard(provider = aiProvider.value) {
+  if (!apiPinCard) return;
+  if (provider === "demo") {
+    apiPinCard.classList.remove("is-missing");
+    apiPinCard.innerHTML = `
+      <div>
+        <strong>고정 API Key</strong>
+        <p>데모 엔진 사용 중 · API Key 불필요</p>
+      </div>
+      <button class="ghost-button" type="button" data-api-pin-settings="gemini">설정</button>
+    `;
+    return;
+  }
+
+  const setting = state.apiSettings[provider] || {};
+  const configured = hasProviderConfig(provider);
+  apiPinCard.classList.toggle("is-missing", !configured);
+  apiPinCard.innerHTML = `
+    <div>
+      <strong>고정 API Key</strong>
+      <p>${escapeHtml(getProviderLabel(provider))}</p>
+      <small>Key: ${escapeHtml(maskSecret(setting.apiKey))} · Model: ${escapeHtml(setting.model || "미설정")}</small>
+    </div>
+    <button class="ghost-button" type="button" data-api-pin-settings="${provider}">${configured ? "수정" : "등록"}</button>
+  `;
 }
 
 function loadSettingsForm() {
@@ -1954,6 +1983,14 @@ function bindEvents() {
     const isHidden = answerBox.hasAttribute("hidden");
     answerBox.toggleAttribute("hidden", !isHidden);
     button.textContent = isHidden ? "정답/풀이 숨기기" : "정답/풀이 보기";
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-api-pin-settings]");
+    if (!button) return;
+    settingsProvider.value = button.dataset.apiPinSettings;
+    loadSettingsForm();
+    setView("settings");
   });
 
   downloadLinks.addEventListener("click", async (event) => {
