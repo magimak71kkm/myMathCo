@@ -72,7 +72,7 @@
           <div>
             <p class="eyebrow">MathForge Studio</p>
             <h2 id="dashboard-title">수업, 과제, 시험 대비용 문제를 빠르게 만드세요.</h2>
-            <p>학교급, 학년, 단원, 난이도, 문제 유형을 고르면 1개부터 10개까지 즉시 생성합니다. AI 연동 전에도 데모 엔진으로 흐름을 확인할 수 있습니다.</p>
+            <p>학교급, 학년, 단원, 난이도, 문제 유형을 고르면 1개부터 30개까지 즉시 생성합니다. AI 연동 전에도 데모 엔진으로 흐름을 확인할 수 있습니다.</p>
           </div>
           <div class="hero-panel" aria-label="오늘의 생성 현황">
             <span>오늘 생성</span>
@@ -158,6 +158,11 @@
             <div class="field-row">
               <label for="topic">단원</label>
               <select id="topic" name="topic"></select>
+              <div class="custom-topic-panel hidden" id="customTopicPanel">
+                <input id="customTopic" type="text" placeholder="직접 입력 예: 삼각함수의 그래프와 주기">
+                <input id="topicSearch" type="search" placeholder="제시어 검색 예: 함수, 도형, 확률">
+                <div class="suggestion-chips" id="topicSuggestions" aria-label="단원 제시어"></div>
+              </div>
             </div>
 
             <div class="field-row">
@@ -184,7 +189,7 @@
               <label for="count">생성 개수</label>
               <div class="stepper">
                 <button type="button" id="decreaseCount" aria-label="생성 개수 줄이기">−</button>
-                <input id="count" name="count" type="number" min="1" max="10" value="5">
+                <input id="count" name="count" type="number" min="1" max="30" value="5">
                 <button type="button" id="increaseCount" aria-label="생성 개수 늘리기">+</button>
               </div>
             </div>
@@ -268,7 +273,7 @@
                 <li>학교급은 중학교와 고등학교 중 선택합니다.</li>
                 <li>학년을 바꾸면 선택 가능한 단원이 자동으로 바뀝니다.</li>
                 <li>문제 유형은 객관식, 주관식, 서술형, 참/거짓, 혼합을 지원합니다.</li>
-                <li>한 번에 1개부터 10개까지 생성할 수 있습니다.</li>
+                <li>한 번에 1개부터 30개까지 생성할 수 있습니다.</li>
               </ul>
             </article>
 
@@ -443,6 +448,10 @@
     </main>
   </div>
 
+  <div class="download-shelf" id="downloadShelf" hidden>
+    <strong>다운로드 준비됨</strong>
+    <div id="downloadLinks"></div>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>

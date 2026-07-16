@@ -467,6 +467,32 @@ button {
   display: none;
 }
 
+.custom-topic-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.custom-topic-panel.hidden {
+  display: none;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.suggestion-chip {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary-strong);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 select,
 input,
 textarea {
@@ -713,6 +739,14 @@ textarea:focus {
   line-height: 1.55;
 }
 
+.answer-toggle {
+  margin-top: 12px;
+}
+
+.answer-box[hidden] {
+  display: none;
+}
+
 .guide-card {
   min-height: 170px;
 }
@@ -808,6 +842,45 @@ textarea:focus {
   transform: translateY(12px);
   pointer-events: none;
   transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.download-shelf {
+  position: fixed;
+  right: 22px;
+  bottom: 76px;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 44px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.download-shelf[hidden] {
+  display: none;
+}
+
+.download-shelf strong {
+  font-size: 13px;
+}
+
+.download-shelf a {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 10px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.download-shelf a:hover {
+  background: var(--surface-2);
 }
 
 .toast.show {

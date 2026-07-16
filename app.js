@@ -2,17 +2,17 @@ const curriculum = {
   middle: {
     label: "중학교",
     grades: {
-      1: ["소인수분해", "정수와 유리수", "문자의 사용", "일차방정식", "좌표평면", "기본 도형"],
-      2: ["유리수와 순환소수", "식의 계산", "연립일차방정식", "일차함수", "삼각형과 사각형", "확률"],
-      3: ["제곱근", "다항식", "이차방정식", "이차함수", "원의 성질", "통계"]
+      1: ["소인수분해", "최대공약수와 최소공배수", "정수와 유리수", "유리수의 계산", "문자의 사용", "일차식의 계산", "일차방정식", "좌표평면과 그래프", "정비례와 반비례", "기본 도형", "작도와 합동", "입체도형", "자료의 정리와 해석"],
+      2: ["유리수와 순환소수", "단항식과 다항식", "식의 계산", "일차부등식", "연립일차방정식", "일차함수와 그래프", "일차함수의 활용", "삼각형의 성질", "사각형의 성질", "도형의 닮음", "피타고라스 정리", "경우의 수", "확률"],
+      3: ["제곱근과 실수", "근호를 포함한 식의 계산", "다항식의 곱셈과 인수분해", "이차방정식", "이차방정식의 활용", "이차함수와 그래프", "이차함수의 활용", "삼각비", "원의 성질", "원주각", "대푯값과 산포도", "상관관계"]
     }
   },
   high: {
     label: "고등학교",
     grades: {
-      1: ["다항식", "방정식과 부등식", "도형의 방정식", "집합과 명제", "함수", "경우의 수"],
-      2: ["수열", "지수와 로그", "삼각함수", "미분", "적분", "확률분포"],
-      3: ["극한", "미분법", "적분법", "공간도형", "벡터", "통계적 추정"]
+      1: ["다항식의 연산", "나머지정리와 인수정리", "복소수", "이차방정식과 이차함수", "여러 가지 방정식", "여러 가지 부등식", "평면좌표", "직선의 방정식", "원의 방정식", "도형의 이동", "집합", "명제", "함수", "유리함수와 무리함수", "경우의 수"],
+      2: ["수열의 뜻", "등차수열과 등비수열", "수열의 합", "수학적 귀납법", "지수", "로그", "지수함수", "로그함수", "삼각함수의 뜻", "삼각함수의 그래프", "삼각함수의 활용", "함수의 극한", "연속", "미분계수와 도함수", "도함수의 활용", "부정적분", "정적분"],
+      3: ["수열의 극한", "급수", "함수의 극한 심화", "미분법", "여러 가지 함수의 미분", "도함수의 활용 심화", "적분법", "정적분의 활용", "이차곡선", "공간도형", "공간좌표", "벡터의 연산", "평면벡터와 공간벡터", "확률분포", "통계적 추정"]
     }
   }
 };
@@ -38,10 +38,19 @@ const providerHints = {
   local: "로컬 LLM 연결 준비"
 };
 
+const topbarTitles = {
+  dashboard: "MathForge Studio",
+  generator: "문제 제작 워크스페이스",
+  library: "생성 기록 관리",
+  guide: "도움말 센터",
+  settings: "환경 설정",
+  deploy: "배포 준비"
+};
+
 const defaultApiSettings = {
   gemini: {
     apiKey: "",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.1-flash-lite",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/models"
   },
   openai: {
@@ -58,11 +67,12 @@ const defaultApiSettings = {
 
 const modelOptions = {
   gemini: [
+    { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite" },
+    { value: "gemini-flash-latest", label: "Gemini Flash Latest" },
     { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
     { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
     { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
-    { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite" }
+    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash" }
   ],
   openai: [
     { value: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
@@ -95,6 +105,10 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const schoolLevel = $("#schoolLevel");
 const grade = $("#grade");
 const topic = $("#topic");
+const customTopicPanel = $("#customTopicPanel");
+const customTopic = $("#customTopic");
+const topicSearch = $("#topicSearch");
+const topicSuggestions = $("#topicSuggestions");
 const questionType = $("#questionType");
 const difficulty = $("#difficulty");
 const count = $("#count");
@@ -116,6 +130,8 @@ const apiEndpoint = $("#apiEndpoint");
 const apiStatusList = $("#apiStatusList");
 const apiTestResult = $("#apiTestResult");
 const backupStatus = $("#backupStatus");
+const downloadShelf = $("#downloadShelf");
+const downloadLinks = $("#downloadLinks");
 
 function loadProblems() {
   try {
@@ -231,7 +247,7 @@ async function restoreFromJsonFile(file) {
     renderLibrarySets();
     loadSettingsForm();
     renderApiStatus();
-    updateProviderStatus();
+    syncDefaultProvider();
     setBackupStatus("JSON 백업을 복원했습니다.", "success");
     showToast("JSON 백업을 복원했습니다.");
   } catch (error) {
@@ -250,8 +266,7 @@ function showToast(message) {
 function setView(viewId) {
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.viewLink === viewId));
-  const title = document.querySelector(`#${viewId} h2`)?.textContent || "대시보드";
-  pageTitle.textContent = title;
+  pageTitle.textContent = topbarTitles[viewId] || "MathForge Studio";
   $(".sidebar").classList.remove("open");
   window.location.hash = viewId;
   renderDashboard();
@@ -268,7 +283,52 @@ function populateGrades() {
 
 function populateTopics() {
   const topics = curriculum[schoolLevel.value].grades[grade.value];
-  topic.innerHTML = topics.map((item) => `<option value="${item}">${item}</option>`).join("");
+  topic.innerHTML = [
+    ...topics.map((item) => `<option value="${item}">${item}</option>`),
+    `<option value="__custom__">직접 입력</option>`
+  ].join("");
+  updateCustomTopicPanel();
+  renderTopicSuggestions();
+}
+
+function getAllTopics() {
+  return Object.values(curriculum)
+    .flatMap((level) => Object.values(level.grades).flat());
+}
+
+function getTopicValue() {
+  return topic.value === "__custom__" ? customTopic.value.trim() : topic.value;
+}
+
+function updateCustomTopicPanel() {
+  const isCustom = topic.value === "__custom__";
+  customTopicPanel.classList.toggle("hidden", !isCustom);
+}
+
+function renderTopicSuggestions() {
+  const query = topicSearch.value.trim().toLowerCase();
+  const currentTopics = curriculum[schoolLevel.value].grades[grade.value];
+  const base = query
+    ? getAllTopics().filter((item) => item.toLowerCase().includes(query))
+    : getRelatedTopicSuggestions(currentTopics[0] || "");
+  const suggestions = [...new Set(base)].slice(0, 12);
+
+  topicSuggestions.innerHTML = suggestions.map((item) => `
+    <button class="suggestion-chip" type="button" data-topic-suggestion="${escapeHtml(item)}">${escapeHtml(item)}</button>
+  `).join("");
+}
+
+function getRelatedTopicSuggestions(seedTopic) {
+  const keywordMap = [
+    ["함수", ["일차함수의 활용", "이차함수의 활용", "삼각함수의 그래프", "함수의 극한", "도함수의 활용"]],
+    ["방정식", ["연립일차방정식", "이차방정식의 활용", "여러 가지 방정식", "판별식", "근과 계수의 관계"]],
+    ["도형", ["원의 방정식", "도형의 이동", "피타고라스 정리", "삼각비", "공간도형"]],
+    ["확률", ["경우의 수", "확률", "확률분포", "조건부확률", "통계적 추정"]],
+    ["수열", ["등차수열", "등비수열", "수열의 합", "수학적 귀납법", "수열의 극한"]],
+    ["삼각", ["삼각비", "삼각함수의 뜻", "삼각함수의 그래프", "삼각함수의 활용", "사인법칙과 코사인법칙"]]
+  ];
+  const matched = keywordMap.find(([keyword]) => seedTopic.includes(keyword));
+  return matched?.[1] || ["함수의 활용", "방정식의 활용", "그래프 해석", "복합 조건 문제", "실생활 응용"];
 }
 
 function hasProviderConfig(provider) {
@@ -276,6 +336,15 @@ function hasProviderConfig(provider) {
   const setting = state.apiSettings[provider];
   if (provider === "local") return Boolean(setting?.endpoint && setting?.model);
   return Boolean(setting?.apiKey && setting?.model);
+}
+
+function getDefaultProvider() {
+  return ["gemini", "openai", "local"].find((provider) => hasProviderConfig(provider)) || "demo";
+}
+
+function syncDefaultProvider() {
+  aiProvider.value = getDefaultProvider();
+  updateProviderStatus();
 }
 
 function maskSecret(value) {
@@ -376,7 +445,7 @@ function resetProviderKey(provider) {
   saveApiSettings();
   if (settingsProvider.value === provider) loadSettingsForm();
   renderApiStatus();
-  updateProviderStatus();
+  syncDefaultProvider();
 }
 
 async function testApiConnection() {
@@ -407,6 +476,19 @@ async function testApiConnection() {
   try {
     if (provider === "gemini") {
       const base = setting.endpoint || defaultApiSettings.gemini.endpoint;
+      const listResponse = await fetch(`${base.replace(/\/$/, "")}?key=${encodeURIComponent(setting.apiKey)}`);
+      if (!listResponse.ok) throw new Error(`Gemini 모델 목록 조회 오류 ${listResponse.status}`);
+      const modelList = await listResponse.json();
+      const usableModels = (modelList.models || [])
+        .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
+        .map((model) => model.name?.replace("models/", ""))
+        .filter(Boolean);
+
+      if (usableModels.length && !usableModels.includes(setting.model)) {
+        const suggestions = usableModels.slice(0, 5).join(", ");
+        throw new Error(`선택한 모델을 이 API Key에서 찾을 수 없습니다. 사용 가능 예: ${suggestions}`);
+      }
+
       const url = `${base.replace(/\/$/, "")}/${encodeURIComponent(setting.model)}:generateContent?key=${encodeURIComponent(setting.apiKey)}`;
       const response = await fetch(url, {
         method: "POST",
@@ -455,7 +537,7 @@ async function testApiConnection() {
 }
 
 function clampCount(value) {
-  return Math.min(10, Math.max(1, Number(value) || 1));
+  return Math.min(30, Math.max(1, Number(value) || 1));
 }
 
 function selectProblemType(selected, index) {
@@ -466,47 +548,79 @@ function selectProblemType(selected, index) {
 function makeProblem(formData, index) {
   const selectedType = selectProblemType(formData.questionType, index);
   const seed = Date.now() + index * 17;
-  const a = (seed % 8) + 2 + index;
-  const b = ((seed >> 2) % 7) + 1;
-  const c = ((seed >> 3) % 5) + 2;
+  const gradeNumber = Number(formData.grade);
+  const levelBoost = formData.schoolLevel === "high" ? 3 : 0;
+  const difficultyBoost = { easy: 0, medium: 2, hard: 4 }[formData.difficulty];
+  const scale = gradeNumber + levelBoost + difficultyBoost;
+  const a = (seed % 5) + 2 + scale;
+  const b = ((seed >> 2) % 6) + 1 + difficultyBoost;
+  const c = ((seed >> 3) % 4) + 2 + gradeNumber;
+  const d = ((seed >> 4) % 5) + 1 + levelBoost;
   const levelLabel = curriculum[formData.schoolLevel].label;
   const gradeLabel = `${formData.grade}학년`;
   const topicText = formData.topic;
   const difficultyText = difficultyLabels[formData.difficulty];
+  const isHigh = formData.schoolLevel === "high";
+  const isHard = formData.difficulty === "hard";
 
   const templates = {
     multiple: () => {
-      const answer = a * c + b;
+      const answer = isHigh
+        ? a * a + b * a - c
+        : c * (a + b) - d;
+      const stem = isHigh
+        ? `함수 f(x)=x²+${b}x-${c}에 대하여 f(${a})의 값을 고르세요.`
+        : `식 ${c}(x+${b})-${d}에서 x=${a}일 때의 값을 고르세요.`;
       return {
-        question: `${topicText} 단원 ${difficultyText} 문제입니다. x = ${a}일 때, ${c}x + ${b}의 값을 고르세요.`,
-        choices: [answer - 3, answer - 1, answer, answer + 2, answer + 4].map(String),
+        question: stem,
+        choices: [answer - c, answer - b, answer, answer + d, answer + b + c].map(String),
         answer: String(answer),
-        solution: `x에 ${a}를 대입하면 ${c}×${a}+${b}=${answer}입니다.`
+        solution: isHigh
+          ? `f(${a})=${a}²+${b}×${a}-${c}=${answer}입니다.`
+          : `x=${a}를 대입하면 ${c}(${a}+${b})-${d}=${answer}입니다.`
       };
     },
     short: () => {
-      const answer = a + b + c;
+      if (isHigh) {
+        const answer = 2 * a + b;
+        return {
+          question: `${topicText} 개념을 이용해 함수 y=x²+${b}x+${c}의 x=${a}에서의 순간변화율을 구하세요.`,
+          answer: String(answer),
+          solution: `y'=2x+${b}이므로 x=${a}에서 y'=${2 * a}+${b}=${answer}입니다.`
+        };
+      }
+      const answer = a + b;
       return {
-        question: `${topicText} 개념을 이용해 ${a} + ${b} + ${c}의 값을 구하세요.`,
+        question: `${topicText} 개념을 이용해 방정식 ${c}x-${c * a}=${c * b}를 만족하는 x의 값을 구하세요.`,
         answer: String(answer),
-        solution: `세 수를 차례로 더하면 ${a}+${b}+${c}=${answer}입니다.`
+        solution: `${c}x=${c * a}+${c * b}=${c * answer}이므로 x=${answer}입니다.`
       };
     },
     essay: () => {
-      const answer = a * b;
+      if (isHigh || isHard) {
+        const vertexX = -b / 2;
+        const minValueNumerator = 4 * c - b * b;
+        return {
+          question: `${topicText}와 관련하여 이차함수 y=x²+${b}x+${c}의 꼭짓점의 x좌표와 최솟값을 구하는 과정을 설명하세요.`,
+          answer: `x좌표 -${b}/2, 최솟값 ${minValueNumerator}/4`,
+          solution: `완전제곱식으로 고치면 y=(x+${b}/2)²+(${minValueNumerator}/4)이므로 꼭짓점의 x좌표는 -${b}/2, 최솟값은 ${minValueNumerator}/4입니다.`
+        };
+      }
+      const answer = a * b + c;
       return {
-        question: `${topicText}와 관련하여 ${a}개의 묶음에 각각 ${b}개씩 있을 때 전체 개수를 구하고, 풀이 과정을 설명하세요.`,
-        answer: `${answer}개`,
-        solution: `같은 수의 묶음은 곱셈으로 표현할 수 있으므로 ${a}×${b}=${answer}입니다.`
+        question: `${topicText}와 관련하여 ${a}개의 항이 첫째항 ${b}, 공차 ${c}인 등차수열을 이룰 때, 마지막 항을 구하고 과정을 설명하세요.`,
+        answer: String(answer),
+        solution: `등차수열의 n번째 항은 a_n=${b}+(${a}-1)×${c}=${answer}입니다.`
       };
     },
     truefalse: () => {
-      const answer = (a + b) % 2 === 0 ? "참" : "거짓";
+      const discriminant = b * b - 4 * c;
+      const answer = discriminant >= 0 ? "참" : "거짓";
       return {
-        question: `${topicText} 확인 문제입니다. "${a}+${b}는 짝수이다." 이 명제는 참인가요, 거짓인가요?`,
+        question: `${topicText} 확인 문제입니다. "이차방정식 x²+${b}x+${c}=0은 실근을 가진다." 이 명제는 참인가요, 거짓인가요?`,
         choices: ["참", "거짓"],
         answer,
-        solution: `${a}+${b}=${a + b}이므로 ${answer}입니다.`
+        solution: `판별식 D=${b}²-4×1×${c}=${discriminant}입니다. D가 0 이상이면 실근을 가지므로 명제는 ${answer}입니다.`
       };
     }
   };
@@ -529,6 +643,111 @@ function makeProblem(formData, index) {
 
 function generateProblems(formData) {
   return Array.from({ length: formData.count }, (_, index) => makeProblem(formData, index));
+}
+
+function buildAiPrompt(formData) {
+  const levelLabel = curriculum[formData.schoolLevel].label;
+  const gradeLabel = `${formData.grade}학년`;
+  const typeLabel = typeLabels[formData.questionType];
+  const difficultyLabel = difficultyLabels[formData.difficulty];
+  const extra = formData.customPrompt.trim() || "없음";
+
+  return `
+${levelLabel} ${gradeLabel} 수준의 수학 문제를 생성해줘.
+
+조건:
+- 단원: ${formData.topic}
+- 난이도: ${difficultyLabel}
+- 문제 유형: ${typeLabel}
+- 생성 개수: ${formData.count}
+- 추가 조건: ${extra}
+
+품질 기준:
+- 단순 사칙연산 문제가 아니라 해당 학년 단원에 맞는 개념형, 적용형, 사고력 문제를 섞어줘.
+- 중학교는 방정식, 함수, 도형, 확률, 통계의 개념 적용이 드러나게 해줘.
+- 고등학교는 함수, 방정식, 수열, 미분, 적분, 확률 등에서 풀이 전략이 필요한 문제로 만들어줘.
+- 심화 난이도는 2단계 이상 추론이 필요하게 해줘.
+- 문제 문장 첫머리에 "${formData.topic} 단원 ${difficultyLabel} 문제입니다" 같은 안내 문구를 반복하지 마.
+- 단원명과 난이도는 문제 메타데이터에 이미 표시되므로 문제 본문에는 자연스럽게 녹여줘.
+- 객관식은 choices 5개를 만들고, 오답 선지는 그럴듯해야 해.
+- 주관식과 서술형도 answer와 solution을 반드시 포함해.
+
+반드시 JSON 배열만 반환해.
+각 항목 형식:
+{
+  "type": "multiple | short | essay | truefalse",
+  "question": "문제 본문",
+  "choices": ["선지1", "선지2", "선지3", "선지4", "선지5"],
+  "answer": "정답",
+  "solution": "풀이"
+}
+`.trim();
+}
+
+async function generateProblemsWithGemini(formData) {
+  const setting = state.apiSettings.gemini;
+  const base = setting.endpoint || defaultApiSettings.gemini.endpoint;
+  const model = setting.model || defaultApiSettings.gemini.model;
+  const url = `${base.replace(/\/$/, "")}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(setting.apiKey)}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: buildAiPrompt(formData) }] }],
+      generationConfig: {
+        temperature: formData.difficulty === "hard" ? 0.85 : 0.65,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini 생성 오류 ${response.status}: ${errorText.slice(0, 160)}`);
+  }
+
+  const result = await response.json();
+  const text = result.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+  const parsed = JSON.parse(text.replace(/^```json\s*|\s*```$/g, ""));
+  const items = Array.isArray(parsed) ? parsed : parsed.problems;
+  if (!Array.isArray(items) || !items.length) {
+    throw new Error("Gemini 응답에서 문제 배열을 찾지 못했습니다.");
+  }
+
+  return items.slice(0, formData.count).map((item, index) => normalizeAiProblem(item, formData, index));
+}
+
+function normalizeAiProblem(item, formData, index) {
+  const selectedType = selectProblemType(formData.questionType, index);
+  const type = ["multiple", "short", "essay", "truefalse"].includes(item.type) ? item.type : selectedType;
+  const choices = Array.isArray(item.choices)
+    ? item.choices.map(String).filter(Boolean).slice(0, type === "multiple" ? 5 : 2)
+    : undefined;
+
+  return {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    provider: formData.aiProvider,
+    schoolLevel: curriculum[formData.schoolLevel].label,
+    grade: `${formData.grade}학년`,
+    topic: formData.topic,
+    type,
+    typeLabel: typeLabels[type],
+    difficulty: formData.difficulty,
+    difficultyLabel: difficultyLabels[formData.difficulty],
+    note: formData.customPrompt.trim(),
+    question: String(item.question || "문제 생성 결과를 확인하세요."),
+    choices,
+    answer: String(item.answer || "정답 확인 필요"),
+    solution: String(item.solution || "풀이 확인 필요")
+  };
+}
+
+async function generateProblemsForForm(formData) {
+  if (formData.aiProvider === "gemini") {
+    return generateProblemsWithGemini(formData);
+  }
+  return generateProblems(formData);
 }
 
 function createProblemSet(formData, problems) {
@@ -564,7 +783,8 @@ function renderProblem(problem, index) {
       <h4>문제 ${index + 1}. ${escapeHtml(problem.question)}</h4>
       ${choices}
       ${note}
-      <div class="answer-box">
+      <button class="ghost-button answer-toggle" type="button" data-answer-toggle>정답/풀이 보기</button>
+      <div class="answer-box" hidden>
         <strong>정답:</strong> ${escapeHtml(problem.answer)}<br>
         <strong>풀이:</strong> ${escapeHtml(problem.solution)}
       </div>
@@ -739,8 +959,19 @@ function downloadBlob(blob, fileName) {
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
+  link.textContent = fileName;
+  link.dataset.objectUrl = url;
+
+  downloadShelf.hidden = false;
+  downloadLinks.prepend(link);
+
+  while (downloadLinks.children.length > 5) {
+    const oldLink = downloadLinks.lastElementChild;
+    URL.revokeObjectURL(oldLink.dataset.objectUrl);
+    oldLink.remove();
+  }
+
+  window.setTimeout(() => link.click(), 0);
 }
 
 function buildPrintableHtml(problems, title, mode = "full") {
@@ -816,14 +1047,179 @@ function openPrintDocument(problems, title, mode = "full") {
   frame.addEventListener("load", () => {
     const printTarget = frame.contentWindow;
     printTarget.focus();
-    printTarget.print();
-    showToast("인쇄 창에서 PDF로 저장할 수 있습니다.");
-    window.setTimeout(() => frame.remove(), 1000);
+    window.setTimeout(() => {
+      printTarget.print();
+      showToast("인쇄 창에서 PDF로 저장할 수 있습니다.");
+    }, 250);
   }, { once: true });
 }
 
-function exportProblemsAsPdf(problems, title = "MathForge 문제 세트") {
-  openPrintDocument(problems, `${title} PDF`, "full");
+async function exportProblemsAsPdf(problems, title = "MathForge 문제 세트") {
+  if (!problems.length) {
+    showToast("내보낼 문제가 없습니다.");
+    return;
+  }
+
+  showToast("PDF 파일을 만드는 중입니다.");
+  const pages = await renderPdfPages(problems, title);
+  const pdfBlob = buildPdfFromJpegs(pages);
+  downloadBlob(pdfBlob, `${sanitizeFileName(title)}.pdf`);
+  showToast("PDF 파일을 다운로드했습니다.");
+}
+
+async function renderPdfPages(problems, title) {
+  const pageWidth = 1240;
+  const pageHeight = 1754;
+  const margin = 88;
+  const lineHeight = 34;
+  const pages = [];
+  let canvas;
+  let ctx;
+  let y;
+
+  function newPage() {
+    canvas = document.createElement("canvas");
+    canvas.width = pageWidth;
+    canvas.height = pageHeight;
+    ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, pageWidth, pageHeight);
+    ctx.fillStyle = "#16202a";
+    ctx.font = "700 34px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.fillText(title, margin, margin);
+    ctx.strokeStyle = "#dfe6ee";
+    ctx.beginPath();
+    ctx.moveTo(margin, margin + 28);
+    ctx.lineTo(pageWidth - margin, margin + 28);
+    ctx.stroke();
+    y = margin + 82;
+  }
+
+  function pushPage() {
+    pages.push({
+      width: pageWidth,
+      height: pageHeight,
+      jpeg: dataUrlToBytes(canvas.toDataURL("image/jpeg", 0.92))
+    });
+  }
+
+  function ensureSpace(height) {
+    if (y + height <= pageHeight - margin) return;
+    pushPage();
+    newPage();
+  }
+
+  function drawWrapped(text, x, maxWidth, font, color = "#16202a") {
+    ctx.font = font;
+    ctx.fillStyle = color;
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let line = "";
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    for (const lineText of lines) {
+      ctx.fillText(lineText, x, y);
+      y += lineHeight;
+    }
+    return lines.length * lineHeight;
+  }
+
+  newPage();
+  problems.forEach((problem, index) => {
+    ensureSpace(260);
+    ctx.fillStyle = "#eef8f6";
+    ctx.fillRect(margin - 18, y - 34, pageWidth - margin * 2 + 36, 46);
+    ctx.fillStyle = "#174f52";
+    ctx.font = "700 24px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif";
+    ctx.fillText(`문제 ${index + 1} · ${problem.topic} · ${problem.typeLabel} · ${problem.difficultyLabel}`, margin, y);
+    y += 48;
+    drawWrapped(problem.question, margin, pageWidth - margin * 2, "500 25px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif");
+    if (problem.choices?.length) {
+      y += 8;
+      problem.choices.forEach((choice, choiceIndex) => {
+        ensureSpace(46);
+        drawWrapped(`${choiceIndex + 1}. ${choice}`, margin + 22, pageWidth - margin * 2 - 22, "400 23px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#344353");
+      });
+    }
+    y += 14;
+    ensureSpace(120);
+    drawWrapped(`정답: ${problem.answer}`, margin, pageWidth - margin * 2, "700 23px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#174f52");
+    drawWrapped(`풀이: ${problem.solution}`, margin, pageWidth - margin * 2, "400 22px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#344353");
+    y += 26;
+  });
+  pushPage();
+  return pages;
+}
+
+function dataUrlToBytes(dataUrl) {
+  const binary = atob(dataUrl.split(",")[1]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function buildPdfFromJpegs(pages) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const offsets = [0];
+  let length = 0;
+
+  function addText(text) {
+    const bytes = encoder.encode(text);
+    chunks.push(bytes);
+    length += bytes.length;
+  }
+
+  function addBytes(bytes) {
+    chunks.push(bytes);
+    length += bytes.length;
+  }
+
+  function beginObject(id) {
+    offsets[id] = length;
+    addText(`${id} 0 obj\n`);
+  }
+
+  addText("%PDF-1.4\n%\xFF\xFF\xFF\xFF\n");
+  beginObject(1);
+  addText("<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  beginObject(2);
+  const pageObjectIds = pages.map((_, index) => 3 + index * 3);
+  addText(`<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>\nendobj\n`);
+
+  pages.forEach((page, index) => {
+    const pageId = 3 + index * 3;
+    const imageId = pageId + 1;
+    const contentId = pageId + 2;
+    const pageWidthPt = 595.28;
+    const pageHeightPt = 841.89;
+    const content = `q\n${pageWidthPt} 0 0 ${pageHeightPt} 0 0 cm\n/Im0 Do\nQ\n`;
+
+    beginObject(pageId);
+    addText(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidthPt} ${pageHeightPt}] /Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj\n`);
+    beginObject(imageId);
+    addText(`<< /Type /XObject /Subtype /Image /Width ${page.width} /Height ${page.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.jpeg.length} >>\nstream\n`);
+    addBytes(page.jpeg);
+    addText("\nendstream\nendobj\n");
+    beginObject(contentId);
+    addText(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+  });
+
+  const xrefOffset = length;
+  addText(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+  for (let i = 1; i < offsets.length; i += 1) {
+    addText(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`);
+  }
+  addText(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+  return new Blob(chunks, { type: "application/pdf" });
 }
 
 function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세트") {
@@ -832,39 +1228,153 @@ function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세
     return;
   }
 
-  const rows = problems.map((problem, index) => `
-    <tr>
-      <td>${index + 1}</td>
-      <td>${escapeHtml(problem.schoolLevel)}</td>
-      <td>${escapeHtml(problem.grade)}</td>
-      <td>${escapeHtml(problem.topic)}</td>
-      <td>${escapeHtml(problem.typeLabel)}</td>
-      <td>${escapeHtml(problem.difficultyLabel)}</td>
-      <td>${escapeHtml(problem.question)}</td>
-      <td>${escapeHtml((problem.choices || []).join(" / "))}</td>
-      <td>${escapeHtml(problem.answer)}</td>
-      <td>${escapeHtml(problem.solution)}</td>
-    </tr>
-  `).join("");
-  const html = `<!doctype html>
-    <html lang="ko">
-    <head><meta charset="utf-8"></head>
-    <body>
-      <table border="1">
-        <caption>${escapeHtml(title)}</caption>
-        <thead>
-          <tr>
-            <th>번호</th><th>학교급</th><th>학년</th><th>단원</th><th>유형</th><th>난이도</th>
-            <th>문제</th><th>선지</th><th>정답</th><th>풀이</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </body>
-    </html>`;
+  const headers = ["번호", "학교급", "학년", "단원", "유형", "난이도", "문제", "선지", "정답", "풀이"];
+  const rows = problems.map((problem, index) => [
+    index + 1,
+    problem.schoolLevel,
+    problem.grade,
+    problem.topic,
+    problem.typeLabel,
+    problem.difficultyLabel,
+    problem.question,
+    (problem.choices || []).join(" / "),
+    problem.answer,
+    problem.solution
+  ]);
+  const workbook = buildXlsxWorkbook([headers, ...rows], title);
+  downloadBlob(workbook, fileName.replace(/\.(xls|csv)$/i, ".xlsx"));
+  showToast("XLSX 파일을 다운로드했습니다.");
+}
 
-  downloadBlob(new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" }), fileName);
-  showToast("엑셀 파일을 다운로드했습니다.");
+function buildXlsxWorkbook(rows, title) {
+  const sheetRows = rows.map((row, rowIndex) => {
+    const cells = row.map((cell, cellIndex) => {
+      const ref = `${columnName(cellIndex + 1)}${rowIndex + 1}`;
+      return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(cell)}</t></is></c>`;
+    }).join("");
+    return `<row r="${rowIndex + 1}">${cells}</row>`;
+  }).join("");
+
+  const files = {
+    "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+</Types>`,
+    "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+</Relationships>`,
+    "docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>${escapeXml(title)}</dc:title>
+  <dc:creator>MathForge</dc:creator>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created>
+</cp:coreProperties>`,
+    "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Problems" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`,
+    "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`,
+    "xl/worksheets/sheet1.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${sheetRows}</sheetData>
+</worksheet>`
+  };
+
+  return new Blob([zipStore(files)], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+}
+
+function columnName(index) {
+  let name = "";
+  while (index > 0) {
+    const remainder = (index - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    index = Math.floor((index - 1) / 26);
+  }
+  return name;
+}
+
+function escapeXml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function zipStore(files) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  Object.entries(files).forEach(([name, content]) => {
+    const nameBytes = encoder.encode(name);
+    const data = encoder.encode(content);
+    const crc = crc32(data);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const view = new DataView(local.buffer);
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 0, true);
+    view.setUint16(8, 0, true);
+    view.setUint32(14, crc, true);
+    view.setUint32(18, data.length, true);
+    view.setUint32(22, data.length, true);
+    view.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    chunks.push(local, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint32(42, offset, true);
+    centralHeader.set(nameBytes, 46);
+    central.push(centralHeader);
+    offset += local.length + data.length;
+  });
+
+  const centralOffset = offset;
+  const centralSize = central.reduce((sum, item) => sum + item.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, central.length, true);
+  endView.setUint16(10, central.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, centralOffset, true);
+
+  return new Blob([...chunks, ...central, end]);
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) {
+    crc ^= bytes[i];
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function findProblemSet(setId) {
@@ -940,6 +1450,15 @@ function escapeHtml(value) {
 }
 
 function bindEvents() {
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-answer-toggle]");
+    if (!button) return;
+    const answerBox = button.nextElementSibling;
+    const isHidden = answerBox.hasAttribute("hidden");
+    answerBox.toggleAttribute("hidden", !isHidden);
+    button.textContent = isHidden ? "정답/풀이 숨기기" : "정답/풀이 보기";
+  });
+
   $$("[data-view-link]").forEach((link) => {
     link.addEventListener("click", () => setView(link.dataset.viewLink));
   });
@@ -947,6 +1466,13 @@ function bindEvents() {
   $("#menuToggle").addEventListener("click", () => $(".sidebar").classList.toggle("open"));
   schoolLevel.addEventListener("change", populateGrades);
   grade.addEventListener("change", populateTopics);
+  topic.addEventListener("change", updateCustomTopicPanel);
+  topicSearch.addEventListener("input", renderTopicSuggestions);
+  topicSuggestions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-topic-suggestion]");
+    if (!button) return;
+    customTopic.value = button.dataset.topicSuggestion;
+  });
   aiProvider.addEventListener("change", () => {
     updateProviderStatus();
   });
@@ -972,18 +1498,23 @@ function bindEvents() {
     count.value = clampCount(count.value);
   });
 
-  $("#generatorForm").addEventListener("submit", (event) => {
+  $("#generatorForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = {
       schoolLevel: schoolLevel.value,
       grade: grade.value,
-      topic: topic.value,
+      topic: getTopicValue(),
       questionType: questionType.value,
       difficulty: difficulty.value,
       count: clampCount(count.value),
       aiProvider: aiProvider.value,
       customPrompt: customPrompt.value
     };
+
+    if (!formData.topic) {
+      showToast("직접 입력 단원을 입력하세요.");
+      return;
+    }
 
     if (formData.aiProvider !== "demo") {
       if (!hasProviderConfig(formData.aiProvider)) {
@@ -993,19 +1524,38 @@ function bindEvents() {
         loadSettingsForm();
         return;
       }
-      showToast("API 설정은 저장되어 있습니다. 현재 생성은 데모 엔진으로 처리됩니다.");
     }
 
-    const generated = generateProblems(formData);
-    const generatedSet = createProblemSet(formData, generated);
-    state.currentProblems = generated;
-    state.currentSet = generatedSet;
-    state.problemSets = [generatedSet, ...state.problemSets];
-    saveProblems();
-    renderProblems(problemList, generated, "아직 생성된 문제가 없습니다.", "왼쪽 조건을 설정하고 문제 생성을 눌러보세요.");
-    renderDashboard();
-    renderLibrarySets();
-    showToast(`${generated.length}개 문제가 생성되었습니다.`);
+    const submitButton = event.submitter;
+    submitButton.disabled = true;
+    submitButton.textContent = formData.aiProvider === "demo" ? "생성 중..." : "AI 생성 중...";
+
+    try {
+      const generated = await generateProblemsForForm(formData);
+      const generatedSet = createProblemSet(formData, generated);
+      state.currentProblems = generated;
+      state.currentSet = generatedSet;
+      state.problemSets = [generatedSet, ...state.problemSets];
+      saveProblems();
+      renderProblems(problemList, generated, "아직 생성된 문제가 없습니다.", "왼쪽 조건을 설정하고 문제 생성을 눌러보세요.");
+      renderDashboard();
+      renderLibrarySets();
+      showToast(`${generated.length}개 문제가 생성되었습니다.`);
+    } catch (error) {
+      const fallback = generateProblems(formData);
+      const fallbackSet = createProblemSet({ ...formData, aiProvider: "demo" }, fallback);
+      state.currentProblems = fallback;
+      state.currentSet = fallbackSet;
+      state.problemSets = [fallbackSet, ...state.problemSets];
+      saveProblems();
+      renderProblems(problemList, fallback, "아직 생성된 문제가 없습니다.", "왼쪽 조건을 설정하고 문제 생성을 눌러보세요.");
+      renderDashboard();
+      renderLibrarySets();
+      showToast(`AI 생성 실패로 데모 문제를 생성했습니다: ${error.message}`);
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "문제 생성";
+    }
   });
 
   $("#copyBtn").addEventListener("click", async () => {
@@ -1018,7 +1568,7 @@ function bindEvents() {
 
   $("#excelBtn").addEventListener("click", () => {
     const title = state.currentSet?.title || "MathForge 생성 문제";
-    exportProblemsAsExcel(state.currentProblems, `${sanitizeFileName(title)}.xls`, title);
+    exportProblemsAsExcel(state.currentProblems, `${sanitizeFileName(title)}.xlsx`, title);
   });
 
   $("#printProblemsBtn").addEventListener("click", () => {
@@ -1038,7 +1588,7 @@ function bindEvents() {
   });
 
   $("#exportAllExcelBtn").addEventListener("click", () => {
-    exportProblemsAsExcel(state.problems, "mathforge-library.xls", "MathForge 전체 보관함");
+    exportProblemsAsExcel(state.problems, "mathforge-library.xlsx", "MathForge 전체 보관함");
   });
 
   $("#clearLibraryBtn").addEventListener("click", () => {
@@ -1095,7 +1645,7 @@ function bindEvents() {
     }
 
     if (excelButton) {
-      exportProblemsAsExcel(problemSet.problems || [], `${sanitizeFileName(problemSet.title)}.xls`, problemSet.title);
+      exportProblemsAsExcel(problemSet.problems || [], `${sanitizeFileName(problemSet.title)}.xlsx`, problemSet.title);
       return;
     }
 
@@ -1128,7 +1678,7 @@ function bindEvents() {
     };
     saveApiSettings();
     renderApiStatus();
-    updateProviderStatus();
+    syncDefaultProvider();
     $("#apiSaveStatus").textContent = "저장됨";
     showToast("API 설정을 저장했습니다.");
   });
@@ -1148,7 +1698,7 @@ function bindEvents() {
     saveApiSettings();
     loadSettingsForm();
     renderApiStatus();
-    updateProviderStatus();
+    syncDefaultProvider();
     $("#apiSaveStatus").textContent = "전체 삭제됨";
     showToast("저장된 모든 API 키를 삭제했습니다.");
   });
@@ -1186,7 +1736,7 @@ function init() {
   renderLibrarySets();
   loadSettingsForm();
   renderApiStatus();
-  updateProviderStatus();
+  syncDefaultProvider();
   const initialView = location.hash.replace("#", "") || "dashboard";
   setView(document.getElementById(initialView) ? initialView : "dashboard");
 }
