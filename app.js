@@ -33,6 +33,27 @@ const difficultyLabels = {
   hard: "심화"
 };
 
+const lessonPurposeLabels = {
+  concept: "개념 확인",
+  homework: "숙제",
+  quiz: "쪽지시험",
+  exam: "내신 대비",
+  advanced: "상위권 심화"
+};
+
+const studentProfileLabels = {
+  foundation: "기초 보완반",
+  standard: "표준반",
+  top: "상위권반",
+  mixed: "혼합반"
+};
+
+const solutionDepthLabels = {
+  brief: "간단 풀이",
+  teaching: "수업용 상세 풀이",
+  rubric: "채점 기준 포함"
+};
+
 const providerHints = {
   demo: "샘플 엔진 사용 중",
   gemini: "Gemini API 연결 준비",
@@ -113,6 +134,12 @@ const topicSearch = $("#topicSearch");
 const topicSuggestions = $("#topicSuggestions");
 const questionType = $("#questionType");
 const difficulty = $("#difficulty");
+const lessonPurpose = $("#lessonPurpose");
+const studentProfile = $("#studentProfile");
+const solutionDepth = $("#solutionDepth");
+const includeMistakes = $("#includeMistakes");
+const includeRubric = $("#includeRubric");
+const includeVisuals = $("#includeVisuals");
 const count = $("#count");
 const aiProvider = $("#aiProvider");
 const customPrompt = $("#customPrompt");
@@ -556,7 +583,44 @@ function pickVisualKind(topicText, index) {
   return index % 4 === 0 ? "graph" : "none";
 }
 
+function buildTeacherMeta(formData, params, selectedType) {
+  const purposeLabel = lessonPurposeLabels[formData.lessonPurpose] || lessonPurposeLabels.exam;
+  const profileLabel = studentProfileLabels[formData.studentProfile] || studentProfileLabels.standard;
+  const depthLabel = solutionDepthLabels[formData.solutionDepth] || solutionDepthLabels.teaching;
+  const baseMinutes = { easy: 2, medium: 4, hard: 7 }[formData.difficulty] || 4;
+  const typeMinutes = { multiple: 1, short: 2, essay: 4, truefalse: 1 }[selectedType] || 2;
+  const purposeMinutes = formData.lessonPurpose === "advanced" ? 3 : formData.lessonPurpose === "quiz" ? -1 : 0;
+  const estimatedMinutes = Math.max(2, baseMinutes + typeMinutes + purposeMinutes);
+  const coreSkill = /함수|그래프|좌표|직선|이차|로그|지수|미분|적분/.test(formData.topic)
+    ? "식과 그래프의 연결"
+    : /도형|삼각|원|각|닮음|피타고라스|벡터/.test(formData.topic)
+      ? "도형 조건 해석"
+      : /확률|통계|경우|분포/.test(formData.topic)
+        ? "자료 해석과 경우 분류"
+        : "개념 적용과 계산 검증";
+
+  return {
+    lessonPurpose: purposeLabel,
+    studentProfile: profileLabel,
+    solutionDepth: depthLabel,
+    estimatedMinutes,
+    skillTags: [coreSkill, purposeLabel, profileLabel],
+    teachingPoint: `${formData.topic}에서 ${coreSkill}을 확인하고, 풀이 과정의 근거를 말로 설명하게 합니다.`,
+    commonMistake: formData.includeMistakes
+      ? `조건을 식으로 옮기는 단계에서 부호, 범위, 단위 또는 그래프 축을 빠뜨리기 쉽습니다.`
+      : "",
+    rubric: formData.includeRubric
+      ? [
+          `핵심 개념 또는 정리 선택: ${params.c}점`,
+          `조건 정리와 식 세우기: ${params.b}점`,
+          `계산 및 결론 표현: ${params.d}점`
+        ].join(" / ")
+      : ""
+  };
+}
+
 function createDemoVisual(formData, params, index) {
+  if (!formData.includeVisuals) return null;
   const kind = pickVisualKind(formData.topic, index);
   if (kind === "none") return null;
 
@@ -608,6 +672,7 @@ function makeProblem(formData, index) {
   const isHigh = formData.schoolLevel === "high";
   const isHard = formData.difficulty === "hard";
   const visual = createDemoVisual(formData, { a, b, c, d }, index);
+  const teacherMeta = buildTeacherMeta(formData, { b, c, d }, selectedType);
 
   const templates = {
     multiple: () => {
@@ -684,6 +749,7 @@ function makeProblem(formData, index) {
     difficultyLabel: difficultyText,
     note: formData.customPrompt.trim(),
     visual,
+    teacherMeta,
     ...templates[selectedType]()
   };
 }
@@ -720,27 +786,38 @@ function buildAiPrompt(formData) {
   const gradeLabel = `${formData.grade}학년`;
   const typeLabel = typeLabels[formData.questionType];
   const difficultyLabel = difficultyLabels[formData.difficulty];
+  const purposeLabel = lessonPurposeLabels[formData.lessonPurpose];
+  const profileLabel = studentProfileLabels[formData.studentProfile];
+  const depthLabel = solutionDepthLabels[formData.solutionDepth];
   const extra = formData.customPrompt.trim() || "없음";
 
   return `
-${levelLabel} ${gradeLabel} 수준의 수학 문제를 생성해줘.
+${levelLabel} ${gradeLabel} 대상 수학 학원 선생님이 바로 사용할 수 있는 전문가용 문제 세트를 생성해줘.
 
 조건:
 - 단원: ${formData.topic}
 - 난이도: ${difficultyLabel}
 - 문제 유형: ${typeLabel}
 - 생성 개수: ${formData.count}
+- 수업 용도: ${purposeLabel}
+- 학생 수준: ${profileLabel}
+- 풀이 수준: ${depthLabel}
+- 흔한 오답 포인트 포함: ${formData.includeMistakes ? "예" : "아니오"}
+- 채점 기준 포함: ${formData.includeRubric ? "예" : "아니오"}
+- 도형/그래프 우선 포함: ${formData.includeVisuals ? "예" : "아니오"}
 - 추가 조건: ${extra}
 
 품질 기준:
-- 단순 사칙연산 문제가 아니라 해당 학년 단원에 맞는 개념형, 적용형, 사고력 문제를 섞어줘.
+- 단순 사칙연산 문제가 아니라 학원 내신 대비, 숙제, 쪽지시험에 쓸 수 있는 개념형, 적용형, 사고력 문제를 섞어줘.
 - 중학교는 방정식, 함수, 도형, 확률, 통계의 개념 적용이 드러나게 해줘.
 - 고등학교는 함수, 방정식, 수열, 미분, 적분, 확률 등에서 풀이 전략이 필요한 문제로 만들어줘.
 - 심화 난이도는 2단계 이상 추론이 필요하게 해줘.
+- 각 문항은 예상 풀이 시간, 핵심 역량 태그, 수업 포인트, 흔한 오답, 채점 기준을 포함해줘.
+- 풀이에는 선생님이 판서할 수 있도록 핵심 전개와 근거를 분리해서 설명해줘.
 - 문제 문장 첫머리에 "${formData.topic} 단원 ${difficultyLabel} 문제입니다" 같은 안내 문구를 반복하지 마.
 - 단원명과 난이도는 문제 메타데이터에 이미 표시되므로 문제 본문에는 자연스럽게 녹여줘.
 - 함수, 좌표, 도형, 삼각비, 원, 벡터, 통계 그래프처럼 그림이 도움이 되는 문제는 visual 필드를 포함해줘.
-- visual은 실제 이미지를 만들지 말고 아래 JSON 데이터만 넣어줘. 그림이 필요 없으면 null로 둬.
+- visual은 실제 이미지를 만들지 말고 아래 JSON 데이터만 넣어줘. ${formData.includeVisuals ? "가능하면 그림이 필요한 문항을 포함해줘." : "그림이 꼭 필요 없으면 null로 둬."}
 - 객관식은 choices 5개를 만들고, 오답 선지는 그럴듯해야 해.
 - 주관식과 서술형도 answer와 solution을 반드시 포함해.
 
@@ -752,6 +829,13 @@ ${levelLabel} ${gradeLabel} 수준의 수학 문제를 생성해줘.
   "choices": ["선지1", "선지2", "선지3", "선지4", "선지5"],
   "answer": "정답",
   "solution": "풀이",
+  "teacherMeta": {
+    "estimatedMinutes": 5,
+    "skillTags": ["핵심 역량", "출제 의도"],
+    "teachingPoint": "수업에서 강조할 포인트",
+    "commonMistake": "학생들이 자주 틀리는 지점",
+    "rubric": "채점 기준"
+  },
   "visual": {
     "type": "graph | triangle | circle",
     "title": "보기 그래프 또는 보기 도형",
@@ -802,6 +886,8 @@ function normalizeAiProblem(item, formData, index) {
   const choices = Array.isArray(item.choices)
     ? item.choices.map(String).filter(Boolean).slice(0, type === "multiple" ? 5 : 2)
     : undefined;
+  const fallbackMeta = buildTeacherMeta(formData, { b: 3, c: 3, d: 4 }, type);
+  const aiMeta = item.teacherMeta && typeof item.teacherMeta === "object" ? item.teacherMeta : {};
 
   return {
     id: crypto.randomUUID(),
@@ -819,6 +905,16 @@ function normalizeAiProblem(item, formData, index) {
     choices,
     answer: String(item.answer || "정답 확인 필요"),
     solution: String(item.solution || "풀이 확인 필요"),
+    teacherMeta: {
+      ...fallbackMeta,
+      estimatedMinutes: Number(aiMeta.estimatedMinutes) || fallbackMeta.estimatedMinutes,
+      skillTags: Array.isArray(aiMeta.skillTags) && aiMeta.skillTags.length
+        ? aiMeta.skillTags.map(String).slice(0, 5)
+        : fallbackMeta.skillTags,
+      teachingPoint: String(aiMeta.teachingPoint || fallbackMeta.teachingPoint),
+      commonMistake: formData.includeMistakes ? String(aiMeta.commonMistake || fallbackMeta.commonMistake) : "",
+      rubric: formData.includeRubric ? String(aiMeta.rubric || fallbackMeta.rubric) : ""
+    },
     visual: normalizeProblemVisual(item.visual)
   };
 }
@@ -842,6 +938,8 @@ function createProblemSet(formData, problems) {
     title: `${levelLabel} ${gradeLabel} · ${formData.topic}`,
     summary: `${difficultyLabel} · ${typeLabel} · ${problems.length}문제`,
     provider: formData.aiProvider,
+    lessonPurpose: lessonPurposeLabels[formData.lessonPurpose],
+    studentProfile: studentProfileLabels[formData.studentProfile],
     problems
   };
 }
@@ -905,12 +1003,39 @@ function renderProblemVisual(visual) {
   return `<figure class="problem-visual">${svg}${caption}</figure>`;
 }
 
+function renderTeacherMeta(meta) {
+  if (!meta) return "";
+  const tags = Array.isArray(meta.skillTags)
+    ? meta.skillTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
+    : "";
+  const mistake = meta.commonMistake
+    ? `<p><strong>오답 포인트</strong>${escapeHtml(meta.commonMistake)}</p>`
+    : "";
+  const rubric = meta.rubric
+    ? `<p><strong>채점 기준</strong>${escapeHtml(meta.rubric)}</p>`
+    : "";
+
+  return `
+    <aside class="teacher-meta">
+      <div class="teacher-meta-head">
+        <strong>강사용 분석</strong>
+        <span>${escapeHtml(meta.estimatedMinutes || "-")}분</span>
+      </div>
+      <div class="skill-tags">${tags}</div>
+      <p><strong>수업 포인트</strong>${escapeHtml(meta.teachingPoint || "핵심 개념 적용 과정을 확인합니다.")}</p>
+      ${mistake}
+      ${rubric}
+    </aside>
+  `;
+}
+
 function renderProblem(problem, index) {
   const choices = problem.choices
     ? `<ol class="choices">${problem.choices.map((choice, choiceIndex) => `<li>${choiceIndex + 1}. ${choice}</li>`).join("")}</ol>`
     : "";
   const note = problem.note ? `<p><strong>추가 조건:</strong> ${escapeHtml(problem.note)}</p>` : "";
   const visual = renderProblemVisual(problem.visual);
+  const teacherMeta = renderTeacherMeta(problem.teacherMeta);
 
   return `
     <article class="problem-card">
@@ -924,6 +1049,7 @@ function renderProblem(problem, index) {
       ${visual}
       ${choices}
       ${note}
+      ${teacherMeta}
       <button class="ghost-button answer-toggle" type="button" data-answer-toggle>정답/풀이 보기</button>
       <div class="answer-box" hidden>
         <strong>정답:</strong> ${escapeHtml(problem.answer)}<br>
@@ -973,6 +1099,8 @@ function renderProblemSetCard(set, setIndex, options = {}) {
           <span><strong>문제 수</strong>${problems.length}</span>
           <span><strong>유형</strong>${escapeHtml(summarizeProblemTypes(problems))}</span>
           <span><strong>난이도</strong>${escapeHtml(summarizeDifficulties(problems))}</span>
+          <span><strong>수업 용도</strong>${escapeHtml(set.lessonPurpose || "-")}</span>
+          <span><strong>학생 수준</strong>${escapeHtml(set.studentProfile || "-")}</span>
         </div>
         <div class="problem-list">
           ${problems.map(renderProblem).join("")}
@@ -1026,9 +1154,16 @@ function exportAsText(problems, fileName) {
 
   const text = problems.map((problem, index) => {
     const choices = problem.choices ? `\n선지: ${problem.choices.join(" / ")}` : "";
+    const meta = problem.teacherMeta ? [
+      `예상 시간: ${problem.teacherMeta.estimatedMinutes || "-"}분`,
+      `수업 포인트: ${problem.teacherMeta.teachingPoint || "-"}`,
+      problem.teacherMeta.commonMistake ? `오답 포인트: ${problem.teacherMeta.commonMistake}` : "",
+      problem.teacherMeta.rubric ? `채점 기준: ${problem.teacherMeta.rubric}` : ""
+    ].filter(Boolean).join("\n") : "";
     return [
       `${index + 1}. [${problem.schoolLevel} ${problem.grade} · ${problem.topic} · ${problem.typeLabel}]`,
       `문제: ${problem.question}${choices}`,
+      meta,
       `정답: ${problem.answer}`,
       `풀이: ${problem.solution}`
     ].join("\n");
@@ -1062,9 +1197,16 @@ function formatDateTime(value) {
 function formatProblemsText(problems, title = "MathForge 문제 세트") {
   const body = problems.map((problem, index) => {
     const choices = problem.choices ? `\n선지: ${problem.choices.join(" / ")}` : "";
+    const meta = problem.teacherMeta ? [
+      `예상 시간: ${problem.teacherMeta.estimatedMinutes || "-"}분`,
+      `수업 포인트: ${problem.teacherMeta.teachingPoint || "-"}`,
+      problem.teacherMeta.commonMistake ? `오답 포인트: ${problem.teacherMeta.commonMistake}` : "",
+      problem.teacherMeta.rubric ? `채점 기준: ${problem.teacherMeta.rubric}` : ""
+    ].filter(Boolean).join("\n") : "";
     return [
       `${index + 1}. [${problem.schoolLevel} ${problem.grade} · ${problem.topic} · ${problem.typeLabel}]`,
       `문제: ${problem.question}${choices}`,
+      meta,
       `정답: ${problem.answer}`,
       `풀이: ${problem.solution}`
     ].join("\n");
@@ -1156,6 +1298,12 @@ function buildPrintableHtml(problems, title, mode = "full") {
         <h2>정답 ${index + 1}</h2>
         <p><strong>${escapeHtml(problem.answer)}</strong></p>
         <p>${escapeHtml(problem.solution)}</p>
+        ${problem.teacherMeta ? `
+          <p><strong>예상 시간:</strong> ${escapeHtml(problem.teacherMeta.estimatedMinutes || "-")}분</p>
+          <p><strong>수업 포인트:</strong> ${escapeHtml(problem.teacherMeta.teachingPoint || "-")}</p>
+          ${problem.teacherMeta.commonMistake ? `<p><strong>오답 포인트:</strong> ${escapeHtml(problem.teacherMeta.commonMistake)}</p>` : ""}
+          ${problem.teacherMeta.rubric ? `<p><strong>채점 기준:</strong> ${escapeHtml(problem.teacherMeta.rubric)}</p>` : ""}
+        ` : ""}
       </section>
     ` : "";
     return `${questionBlock}${answerBlock}`;
@@ -1448,6 +1596,16 @@ async function renderPdfPages(problems, title) {
     ensureSpace(120);
     drawWrapped(`정답: ${problem.answer}`, margin, pageWidth - margin * 2, "700 23px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#174f52");
     drawWrapped(`풀이: ${problem.solution}`, margin, pageWidth - margin * 2, "400 22px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#344353");
+    if (problem.teacherMeta) {
+      y += 10;
+      drawWrapped(`강사용: 예상 ${problem.teacherMeta.estimatedMinutes || "-"}분 · ${problem.teacherMeta.teachingPoint || ""}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+      if (problem.teacherMeta.commonMistake) {
+        drawWrapped(`오답 포인트: ${problem.teacherMeta.commonMistake}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+      }
+      if (problem.teacherMeta.rubric) {
+        drawWrapped(`채점 기준: ${problem.teacherMeta.rubric}`, margin, pageWidth - margin * 2, "400 20px 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif", "#627183");
+      }
+    }
     y += 26;
   });
   pushPage();
@@ -1523,7 +1681,7 @@ function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세
     return;
   }
 
-  const headers = ["번호", "학교급", "학년", "단원", "유형", "난이도", "문제", "그림 유형", "그림 설명", "선지", "정답", "풀이"];
+  const headers = ["번호", "학교급", "학년", "단원", "유형", "난이도", "예상 시간", "역량 태그", "수업 포인트", "오답 포인트", "채점 기준", "문제", "그림 유형", "그림 설명", "선지", "정답", "풀이"];
   const rows = problems.map((problem, index) => [
     index + 1,
     problem.schoolLevel,
@@ -1531,6 +1689,11 @@ function exportProblemsAsExcel(problems, fileName, title = "MathForge 문제 세
     problem.topic,
     problem.typeLabel,
     problem.difficultyLabel,
+    problem.teacherMeta?.estimatedMinutes ? `${problem.teacherMeta.estimatedMinutes}분` : "",
+    (problem.teacherMeta?.skillTags || []).join(" / "),
+    problem.teacherMeta?.teachingPoint || "",
+    problem.teacherMeta?.commonMistake || "",
+    problem.teacherMeta?.rubric || "",
     problem.question,
     problem.visual?.type || "",
     problem.visual?.description || "",
@@ -1825,6 +1988,12 @@ function bindEvents() {
       topic: getTopicValue(),
       questionType: questionType.value,
       difficulty: difficulty.value,
+      lessonPurpose: lessonPurpose.value,
+      studentProfile: studentProfile.value,
+      solutionDepth: solutionDepth.value,
+      includeMistakes: includeMistakes.checked,
+      includeRubric: includeRubric.checked,
+      includeVisuals: includeVisuals.checked,
       count: clampCount(count.value),
       aiProvider: aiProvider.value,
       customPrompt: customPrompt.value

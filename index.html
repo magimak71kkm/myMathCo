@@ -187,6 +187,51 @@
             </div>
 
             <div class="field-row">
+              <label for="lessonPurpose">수업 용도</label>
+              <select id="lessonPurpose" name="lessonPurpose">
+                <option value="concept">개념 확인</option>
+                <option value="homework">숙제</option>
+                <option value="quiz">쪽지시험</option>
+                <option value="exam" selected>내신 대비</option>
+                <option value="advanced">상위권 심화</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="studentProfile">학생 수준</label>
+              <select id="studentProfile" name="studentProfile">
+                <option value="foundation">기초 보완반</option>
+                <option value="standard" selected>표준반</option>
+                <option value="top">상위권반</option>
+                <option value="mixed">혼합반</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="solutionDepth">풀이 수준</label>
+              <select id="solutionDepth" name="solutionDepth">
+                <option value="brief">간단 풀이</option>
+                <option value="teaching" selected>수업용 상세 풀이</option>
+                <option value="rubric">채점 기준 포함</option>
+              </select>
+            </div>
+
+            <div class="option-grid" aria-label="전문가 옵션">
+              <label class="check-option">
+                <input type="checkbox" id="includeMistakes" checked>
+                <span>흔한 오답 포인트</span>
+              </label>
+              <label class="check-option">
+                <input type="checkbox" id="includeRubric" checked>
+                <span>채점 기준</span>
+              </label>
+              <label class="check-option">
+                <input type="checkbox" id="includeVisuals" checked>
+                <span>도형/그래프 우선</span>
+              </label>
+            </div>
+
+            <div class="field-row">
               <label for="count">생성 개수</label>
               <div class="stepper">
                 <button type="button" id="decreaseCount" aria-label="생성 개수 줄이기">−</button>
@@ -274,7 +319,18 @@
                 <li>학교급은 중학교와 고등학교 중 선택합니다.</li>
                 <li>학년을 바꾸면 선택 가능한 단원이 자동으로 바뀝니다.</li>
                 <li>문제 유형은 객관식, 주관식, 서술형, 참/거짓, 혼합을 지원합니다.</li>
+                <li>수업 용도, 학생 수준, 풀이 수준을 지정하면 강사용 분석이 함께 생성됩니다.</li>
                 <li>한 번에 1개부터 30개까지 생성할 수 있습니다.</li>
+              </ul>
+            </article>
+
+            <article class="panel guide-card">
+              <h3>강사용 분석</h3>
+              <ul class="guide-list">
+                <li>각 문항에는 예상 풀이 시간, 핵심 역량 태그, 수업 포인트가 표시됩니다.</li>
+                <li>흔한 오답 포인트를 켜면 학생들이 자주 놓치는 조건을 함께 확인할 수 있습니다.</li>
+                <li>채점 기준을 켜면 서술형 첨삭과 부분 점수 부여에 활용할 수 있습니다.</li>
+                <li>도형/그래프 우선을 켜면 시각 자료가 필요한 단원에서 그림 문항 생성을 강화합니다.</li>
               </ul>
             </article>
 
@@ -292,7 +348,7 @@
               <h3>출력과 내보내기</h3>
               <ul class="guide-list">
                 <li>PDF는 인쇄 창에서 PDF로 저장을 선택하는 방식입니다.</li>
-                <li>엑셀은 .xls 파일로 내려받아 스프레드시트에서 열 수 있습니다.</li>
+                <li>엑셀은 .xlsx 파일로 내려받아 스프레드시트에서 열 수 있습니다.</li>
                 <li>문제지만 출력은 정답과 풀이를 숨깁니다.</li>
                 <li>정답지만 출력은 정답과 풀이 위주로 정리합니다.</li>
               </ul>
