@@ -132,6 +132,7 @@ const apiTestResult = $("#apiTestResult");
 const backupStatus = $("#backupStatus");
 const downloadShelf = $("#downloadShelf");
 const downloadLinks = $("#downloadLinks");
+const downloadItems = new Map();
 
 function loadProblems() {
   try {
@@ -955,20 +956,40 @@ function sanitizeFileName(value) {
 }
 
 function downloadBlob(blob, fileName) {
+  const id = crypto.randomUUID();
   const url = URL.createObjectURL(blob);
+  const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
+  downloadItems.set(id, { file, url });
+
+  const item = document.createElement("div");
+  item.className = "download-item";
+  item.dataset.downloadId = id;
+
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;
+  link.target = "_blank";
+  link.rel = "noopener";
   link.textContent = fileName;
-  link.dataset.objectUrl = url;
+
+  const shareButton = document.createElement("button");
+  shareButton.className = "ghost-button download-share-button";
+  shareButton.type = "button";
+  shareButton.dataset.shareDownload = id;
+  shareButton.textContent = "공유/저장";
+
+  item.append(link, shareButton);
 
   downloadShelf.hidden = false;
-  downloadLinks.prepend(link);
+  downloadLinks.prepend(item);
 
   while (downloadLinks.children.length > 5) {
-    const oldLink = downloadLinks.lastElementChild;
-    URL.revokeObjectURL(oldLink.dataset.objectUrl);
-    oldLink.remove();
+    const oldItem = downloadLinks.lastElementChild;
+    const oldId = oldItem.dataset.downloadId;
+    const oldDownload = downloadItems.get(oldId);
+    if (oldDownload) URL.revokeObjectURL(oldDownload.url);
+    downloadItems.delete(oldId);
+    oldItem.remove();
   }
 
   window.setTimeout(() => link.click(), 0);
@@ -1457,6 +1478,28 @@ function bindEvents() {
     const isHidden = answerBox.hasAttribute("hidden");
     answerBox.toggleAttribute("hidden", !isHidden);
     button.textContent = isHidden ? "정답/풀이 숨기기" : "정답/풀이 보기";
+  });
+
+  downloadLinks.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-share-download]");
+    if (!button) return;
+    const item = downloadItems.get(button.dataset.shareDownload);
+    if (!item) {
+      showToast("다운로드 파일을 찾을 수 없습니다. 다시 생성해 주세요.");
+      return;
+    }
+
+    try {
+      if (navigator.canShare?.({ files: [item.file] }) && navigator.share) {
+        await navigator.share({ files: [item.file], title: item.file.name });
+        showToast("공유/저장 창을 열었습니다.");
+        return;
+      }
+      window.open(item.url, "_blank", "noopener");
+      showToast("새 탭에서 파일을 열었습니다. 브라우저 메뉴에서 저장하세요.");
+    } catch (error) {
+      showToast(`공유/저장 실패: ${error.message}`);
+    }
   });
 
   $$("[data-view-link]").forEach((link) => {

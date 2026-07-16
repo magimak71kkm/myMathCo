@@ -879,6 +879,18 @@ textarea:focus {
   word-break: break-all;
 }
 
+.download-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.download-share-button {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
 .download-shelf a:hover {
   background: var(--surface-2);
 }
@@ -962,6 +974,10 @@ textarea:focus {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .download-item {
+    grid-template-columns: 1fr;
   }
 
   .inline-actions {
