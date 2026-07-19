@@ -2380,6 +2380,7 @@ function bindEvents() {
 function init() {
   if (updatedAt) updatedAt.textContent = `최신 업데이트: ${APP_UPDATED_AT}`;
   applyAppFont();
+  registerServiceWorker();
   populateGrades();
   bindEvents();
   renderDashboard();
@@ -2389,6 +2390,14 @@ function init() {
   syncDefaultProvider();
   const initialView = location.hash.replace("#", "") || "dashboard";
   setView(document.getElementById(initialView) ? initialView : "dashboard");
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol === "file:") return;
+  navigator.serviceWorker.register("./sw.js").catch(() => {
+    // Service worker support is optional; the app still works without it.
+  });
 }
 
 init();
