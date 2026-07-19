@@ -1361,7 +1361,25 @@ function sanitizeFileName(value) {
     .slice(0, 80);
 }
 
+function saveBlobWithAndroidBridge(blob, fileName) {
+  if (!window.MathForgeAndroid?.saveFile) return false;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    const base64 = String(reader.result || "").split(",")[1] || "";
+    window.MathForgeAndroid.saveFile(fileName, blob.type || "application/octet-stream", base64);
+  });
+  reader.addEventListener("error", () => {
+    showToast("앱 저장 준비에 실패했습니다. 다시 시도해 주세요.");
+  });
+  reader.readAsDataURL(blob);
+  showToast("앱 저장 창을 여는 중입니다.");
+  return true;
+}
+
 function downloadBlob(blob, fileName) {
+  if (saveBlobWithAndroidBridge(blob, fileName)) return;
+
   const id = crypto.randomUUID();
   const url = URL.createObjectURL(blob);
   const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
